@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Search, Download, Check, Play, Pause, Trash2, WifiOff, Wifi, Library, Flame, SkipBack, SkipForward, Loader2, Sparkles, Upload, Settings } from "lucide-react";
+import { Search, Download, Check, Play, Pause, Trash2, WifiOff, Wifi, Library, Flame, SkipBack, SkipForward, Loader2, Sparkles, Upload, Settings, ExternalLink } from "lucide-react";
 import {
   type Track,
   multiSearch,
@@ -94,7 +94,7 @@ function App() {
         searchCatalog({ data: { q } }).catch(() => ({ items: [] })),
         searchArchive({ data: { q } }).catch(() => ({ items: [] })),
       ]);
-      const iaTracks: Track[] = ia.items.map((i) => ({ ...i, source: "archive" as const }));
+      const iaTracks: Track[] = ia.items.map((i) => ({ ...i, source: "archive" as const, pageUrl: `https://archive.org/details/${i.id.slice(3).split("/")[0]}` }));
       const ytTracks: Track[] = yt.items.map((i) => ({ ...i, source: "preview" as const }));
       // big catalog first (every artist, previews), then the full downloadable catalog
       setResults([...aud, ...iaTracks, ...ytTracks]);
@@ -138,6 +138,7 @@ function App() {
   };
 
   const list = tab === "library" ? downloads.map((d) => d.track) : fullOnly ? results.filter((t) => t.source !== "preview" || savedIds.has(t.id)) : results;
+  const siteLink = (t: Track) => t.pageUrl ?? `https://suamusica.com.br/busca/${encodeURIComponent(`${t.artist} ${t.title}`.trim())}`;
   const previewCount = results.filter((t) => t.source === "preview").length;
   const art = (t: Track) => artUrls.get(t.id) ?? (online ? t.artwork : "");
 
@@ -278,6 +279,18 @@ function App() {
                         <p className={`truncate text-sm font-semibold ${isCur ? "text-primary" : ""}`}>{t.title}</p>
                         <p className="truncate text-xs text-muted-foreground">{t.artist}</p>
                       </div>
+                      {tab === "home" && (
+                        <a
+                          href={siteLink(t)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          aria-label={`Abrir site para baixar ${t.title}`}
+                          title="Baixar esta música no site — abre em nova aba"
+                          className="shrink-0 p-1 text-muted-foreground transition hover:text-primary"
+                        >
+                          <ExternalLink className="h-4 w-4" />
+                        </a>
+                      )}
                       {tab === "library" ? (
                         <button aria-label="Remover" onClick={() => removeDownload(t.id).then(refresh)} className="text-muted-foreground hover:text-destructive">
                           <Trash2 className="h-4 w-4" />
