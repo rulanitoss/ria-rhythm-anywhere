@@ -42,6 +42,7 @@ function App() {
   const [loading, setLoading] = useState(false);
   const [hints, setHints] = useState<string[]>([]);
   const [fullOnly, setFullOnly] = useState(true);
+  const [savedIds, setSavedIds] = useState<Set<string>>(new Set());
   const [downloads, setDownloads] = useState<{ track: Track; audio: Blob; art?: Blob }[]>([]);
   const [busy, setBusy] = useState<Record<string, boolean>>({});
   const [queue, setQueue] = useState<Track[]>([]);
@@ -69,6 +70,7 @@ function App() {
     refresh();
     setFullOnly(!getShowPreviews());
     const saved = getSavedPreviews();
+    setSavedIds(new Set(saved.map((t) => t.id)));
     if (navigator.onLine) {
       setLoading(true);
       trendingTracks().then((t) => setResults([...saved, ...t])).catch(() => {}).finally(() => setLoading(false));
@@ -135,7 +137,7 @@ function App() {
     }
   };
 
-  const list = tab === "library" ? downloads.map((d) => d.track) : fullOnly ? results.filter((t) => t.source !== "preview") : results;
+  const list = tab === "library" ? downloads.map((d) => d.track) : fullOnly ? results.filter((t) => t.source !== "preview" || savedIds.has(t.id)) : results;
   const previewCount = results.filter((t) => t.source === "preview").length;
   const art = (t: Track) => artUrls.get(t.id) ?? (online ? t.artwork : "");
 
