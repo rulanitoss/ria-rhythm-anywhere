@@ -27,6 +27,43 @@ export async function searchTracks(q: string): Promise<Track[]> {
   return (j.data ?? []).filter((t: any) => t.is_streamable !== false).map(map);
 }
 
+async function searchUsersTracks(q: string): Promise<Track[]> {
+  try {
+    const r = await fetch(`${API}/users/search?query=${encodeURIComponent(q)}&${APP}`);
+    const users = ((await r.json()).data ?? []).slice(0, 2);
+    const lists = await Promise.all(
+      users.map((u: any) =>
+        fetch(`${API}/users/${u.id}/tracks?limit=10&${APP}`).then((x) => x.json()).then((j) => (j.data ?? []).map(map)).catch(() => []),
+      ),
+    );
+    return lists.flat();
+  } catch {
+    return [];
+  }
+}
+
+/** Searches the original text + AI-expanded queries + matching artists, merged without duplicates. */
+export async function multiSearch(original: string, extra: string[]): Promise<Track[]> {
+  const queries = [original, ...extra.filter((e) => e.toLowerCase() !== original.toLowerCase())];
+  const lists = await Promise.all([
+    ...queries.map((q) => searchTracks(q).catch(() => [] as Track[])),
+    searchUsersTracks(original),
+  ]);
+  const seen = new Set<string>();
+  const out: Track[] = [];
+  // interleave so the best results from each query appear first
+  const max = Math.max(...lists.map((l) => l.length));
+  for (let i = 0; i < max; i++)
+    for (const l of lists) {
+      const t = l[i];
+      if (t && !seen.has(t.id)) {
+        seen.add(t.id);
+        out.push(t);
+      }
+    }
+  return out.slice(0, 80);
+}
+
 export async function trendingTracks(): Promise<Track[]> {
   const r = await fetch(`${API}/tracks/trending?${APP}`);
   const j = await r.json();
