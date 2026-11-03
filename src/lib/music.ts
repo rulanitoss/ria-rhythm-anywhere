@@ -5,7 +5,7 @@ export type Track = {
   artwork: string;
   duration: number;
   genre?: string;
-  source?: "audius" | "preview" | "archive";
+  source?: "audius" | "preview" | "archive" | "local";
   preview?: string;
 };
 
@@ -110,3 +110,27 @@ export const getDownloads = () => tx<Stored[]>("readonly", (s) => s.getAll());
 export const removeDownload = (id: string) => tx("readwrite", (s) => s.delete(id));
 
 export const fmt = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
+
+const fileDuration = (f: Blob) =>
+  new Promise<number>((res) => {
+    const a = new Audio();
+    const u = URL.createObjectURL(f);
+    a.preload = "metadata";
+    a.onloadedmetadata = () => { res(isFinite(a.duration) ? a.duration : 0); URL.revokeObjectURL(u); };
+    a.onerror = () => { res(0); URL.revokeObjectURL(u); };
+    a.src = u;
+  });
+
+/** Imports audio files from the user's device into the offline library. */
+export async function importFiles(files: FileList | File[]): Promise<number> {
+  let n = 0;
+  for (const f of Array.from(files)) {
+    if (!f.type.startsWith("audio/") && !/\.(mp3|m4a|aac|wav|ogg|flac|opus)$/i.test(f.name)) continue;
+    const base = f.name.replace(/\.[^.]+$/, "").replace(/_/g, " ");
+    const [artist, title] = base.includes(" - ") ? base.split(" - ", 2) : ["Minhas músicas", base];
+    const track: Track = { id: `local:${f.name}:${f.size}`, title: title.trim(), artist: artist.trim(), artwork: "", duration: await fileDuration(f), source: "local" };
+    await tx("readwrite", (s) => s.put({ track, audio: f } as Stored));
+    n++;
+  }
+  return n;
+}

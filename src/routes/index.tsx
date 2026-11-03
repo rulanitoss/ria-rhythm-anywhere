@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Search, Download, Check, Play, Pause, Trash2, WifiOff, Wifi, Library, Flame, SkipBack, SkipForward, Loader2, Sparkles } from "lucide-react";
+import { Search, Download, Check, Play, Pause, Trash2, WifiOff, Wifi, Library, Flame, SkipBack, SkipForward, Loader2, Sparkles, Upload } from "lucide-react";
 import {
   type Track,
   multiSearch,
@@ -10,6 +10,7 @@ import {
   getDownloads,
   removeDownload,
   fmt,
+  importFiles,
 } from "@/lib/music";
 import { expandQuery } from "@/lib/smart-search.functions";
 import { searchCatalog } from "@/lib/catalog.functions";
@@ -173,8 +174,23 @@ function App() {
         {tab === "home" && !online && (
           <p className="rounded-2xl bg-card p-6 text-muted-foreground">Você está offline. Abra os Downloads para ouvir suas músicas instaladas.</p>
         )}
+        {tab === "library" && (
+          <label className="mb-6 flex w-fit cursor-pointer items-center gap-2 rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground shadow-glow">
+            <Upload className="h-4 w-4" /> Adicionar músicas do meu aparelho
+            <input
+              type="file"
+              accept="audio/*,.mp3,.m4a,.aac,.wav,.ogg,.flac,.opus"
+              multiple
+              className="hidden"
+              onChange={async (e) => {
+                if (e.target.files?.length) { await importFiles(e.target.files); await refresh(); }
+                e.target.value = "";
+              }}
+            />
+          </label>
+        )}
         {tab === "library" && downloads.length === 0 && (
-          <p className="rounded-2xl bg-card p-6 text-muted-foreground">Nenhuma música baixada ainda. Toque no ícone de download em qualquer faixa.</p>
+          <p className="rounded-2xl bg-card p-6 text-muted-foreground">Nenhuma música ainda. Baixe faixas na aba Descobrir ou adicione arquivos de música do seu aparelho (MP3, M4A...). Dica: nomeie como "Artista - Música.mp3".</p>
         )}
         {tab === "home" && online && hints.length > 0 && !loading && (
           <div className="mb-6 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
