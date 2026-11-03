@@ -198,6 +198,27 @@ function App() {
             />
           </label>
         )}
+        {tab === "library" && online && (
+          <div className="mb-8">
+            <p className="mb-3 text-sm font-semibold">Onde baixar músicas <span className="font-normal text-muted-foreground">— baixe lá e adicione aqui com o botão acima</span></p>
+            <div className="flex flex-wrap gap-2">
+              {[
+                ["Sua Música", "https://suamusica.com.br", "CDs de artistas brasileiros"],
+                ["Palco MP3", "https://www.palcomp3.com.br", "artistas independentes BR"],
+                ["Bandcamp", "https://bandcamp.com", "compre ou baixe grátis"],
+                ["Jamendo", "https://www.jamendo.com", "música livre"],
+                ["Free Music Archive", "https://freemusicarchive.org", "música livre"],
+                ["Internet Archive", "https://archive.org/details/audio", "shows e acervos"],
+                ["SoundCloud", "https://soundcloud.com", "quando o artista libera"],
+              ].map(([n, u, d]) => (
+                <a key={n} href={u} target="_blank" rel="noopener noreferrer" className="rounded-xl border border-border bg-card px-4 py-2 text-sm hover:border-primary">
+                  <span className="font-semibold">{n} ↗</span>
+                  <span className="block text-xs text-muted-foreground">{d}</span>
+                </a>
+              ))}
+            </div>
+          </div>
+        )}
         {tab === "library" && downloads.length === 0 && (
           <p className="rounded-2xl bg-card p-6 text-muted-foreground">Nenhuma música ainda. Baixe faixas na aba Descobrir ou adicione arquivos de música do seu aparelho (MP3, M4A...). Dica: nomeie como "Artista - Música.mp3".</p>
         )}
