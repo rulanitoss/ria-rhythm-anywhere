@@ -12,6 +12,7 @@ import {
   fmt,
 } from "@/lib/music";
 import { expandQuery } from "@/lib/smart-search.functions";
+import { searchYouTube } from "@/lib/youtube.functions";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -79,7 +80,13 @@ function App() {
     try {
       const ai = await expandQuery({ data: { q } }).catch(() => ({ queries: [] as string[] }));
       setHints(ai.queries);
-      setResults(await multiSearch(q, ai.queries));
+      const [aud, yt] = await Promise.all([
+        multiSearch(q, ai.queries),
+        searchYouTube({ data: { q } }).catch(() => ({ items: [] })),
+      ]);
+      const ytTracks: Track[] = yt.items.map((i) => ({ ...i, id: "yt:" + i.id, duration: 0, source: "youtube" }));
+      // YouTube first (has every artist), then the downloadable catalog
+      setResults([...ytTracks, ...aud]);
     } finally {
       setLoading(false);
     }
@@ -87,8 +94,17 @@ function App() {
 
   const play = (t: Track, list: Track[]) => {
     const a = audioRef.current!;
+    if (current?.id === t.id && t.source === "youtube") return;
     if (current?.id === t.id) {
       a.paused ? a.play() : a.pause();
+      return;
+    }
+    if (t.source === "youtube") {
+      if (!online) return;
+      audioRef.current?.pause();
+      setCurrent(t);
+      setQueue(list);
+      setPlaying(true);
       return;
     }
     const local = downloaded.get(t.id);
@@ -104,6 +120,7 @@ function App() {
   const step = (dir: 1 | -1) => {
     if (!current) return;
     const playable = queue.filter((t) => online || downloaded.has(t.id));
+    if (current.source === "youtube") setTime(0);
     const i = playable.findIndex((t) => t.id === current.id);
     const next = playable[i + dir];
     if (next) play(next, queue);
@@ -180,6 +197,7 @@ function App() {
               {list.map((t) => {
                 const isDl = downloaded.has(t.id);
                 const isCur = current?.id === t.id;
+                const isYt = t.source === "youtube";
                 const disabled = !online && !isDl;
                 return (
                   <div key={t.id} className={`group rounded-2xl bg-card p-3 transition hover:bg-secondary ${disabled ? "opacity-40" : ""}`}>
@@ -203,6 +221,8 @@ function App() {
                         <button aria-label="Remover" onClick={() => removeDownload(t.id).then(refresh)} className="text-muted-foreground hover:text-destructive">
                           <Trash2 className="h-4 w-4" />
                         </button>
+                      ) : isYt ? (
+                        <span title="Do YouTube: só online, sem download" className="rounded bg-destructive/15 px-1.5 py-0.5 text-[10px] font-bold text-destructive">YouTube</span>
                       ) : isDl ? (
                         <Check className="h-4 w-4 text-primary" />
                       ) : (
@@ -230,10 +250,24 @@ function App() {
       {current && (
         <footer className="fixed inset-x-0 bottom-0 z-30 pb-[env(safe-area-inset-bottom)] border-t border-border bg-card/95 backdrop-blur-xl">
           <div className="mx-auto flex max-w-6xl items-center gap-4 px-5 py-3">
-            {art(current) && <img src={art(current)} alt="" className="hidden h-14 w-14 rounded-lg sm:block object-cover" />}
+            {current.source === "youtube" ? (
+              <iframe
+                key={current.id}
+                title={current.title}
+                src={`https://www.youtube.com/embed/${current.id.slice(3)}?autoplay=1&playsinline=1`}
+                allow="autoplay; encrypted-media; picture-in-picture"
+                allowFullScreen
+                className="h-[90px] w-[160px] shrink-0 rounded-lg sm:h-[112px] sm:w-[200px]"
+              />
+            ) : (
+              art(current) && <img src={art(current)} alt="" className="hidden h-14 w-14 rounded-lg sm:block object-cover" />
+            )}
             <div className="min-w-0 flex-1">
               <p className="truncate text-sm font-semibold">{current.title}</p>
               <p className="truncate text-xs text-muted-foreground">{current.artist}</p>
+              {current.source === "youtube" ? (
+                <p className="mt-2 text-[11px] text-muted-foreground">A tocar pelo YouTube · só online, sem download</p>
+              ) : (
               <div className="mt-2 flex items-center gap-2 text-[11px] text-muted-foreground">
                 <span>{fmt(time)}</span>
                 <input
@@ -246,12 +280,13 @@ function App() {
                 />
                 <span>{fmt(current.duration)}</span>
               </div>
+              )}
             </div>
             <div className="flex items-center gap-2">
               <button aria-label="Anterior" onClick={() => step(-1)} className="p-2 text-muted-foreground hover:text-foreground"><SkipBack className="h-5 w-5" /></button>
-              <button aria-label="Tocar/Pausar" onClick={() => play(current, queue)} className="grid h-12 w-12 place-items-center rounded-full bg-primary text-primary-foreground shadow-glow">
+              {current.source !== "youtube" && <button aria-label="Tocar/Pausar" onClick={() => play(current, queue)} className="grid h-12 w-12 place-items-center rounded-full bg-primary text-primary-foreground shadow-glow">
                 {playing ? <Pause className="h-5 w-5" /> : <Play className="h-5 w-5 translate-x-px" />}
-              </button>
+              </button>}
               <button aria-label="Próxima" onClick={() => step(1)} className="p-2 text-muted-foreground hover:text-foreground"><SkipForward className="h-5 w-5" /></button>
             </div>
           </div>
