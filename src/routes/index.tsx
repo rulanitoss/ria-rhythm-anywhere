@@ -1,6 +1,6 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Search, Download, Check, Play, Pause, Trash2, WifiOff, Wifi, Library, Flame, SkipBack, SkipForward, Loader2, Sparkles, Upload } from "lucide-react";
+import { Search, Download, Check, Play, Pause, Trash2, WifiOff, Wifi, Library, Flame, SkipBack, SkipForward, Loader2, Sparkles, Upload, Settings } from "lucide-react";
 import {
   type Track,
   multiSearch,
@@ -11,6 +11,8 @@ import {
   removeDownload,
   fmt,
   importFiles,
+  getSavedPreviews,
+  getShowPreviews,
 } from "@/lib/music";
 import { expandQuery } from "@/lib/smart-search.functions";
 import { searchCatalog } from "@/lib/catalog.functions";
@@ -40,6 +42,7 @@ function App() {
   const [loading, setLoading] = useState(false);
   const [hints, setHints] = useState<string[]>([]);
   const [fullOnly, setFullOnly] = useState(true);
+  const [savedIds, setSavedIds] = useState<Set<string>>(new Set());
   const [downloads, setDownloads] = useState<{ track: Track; audio: Blob; art?: Blob }[]>([]);
   const [busy, setBusy] = useState<Record<string, boolean>>({});
   const [queue, setQueue] = useState<Track[]>([]);
@@ -65,9 +68,12 @@ function App() {
     window.addEventListener("online", on);
     window.addEventListener("offline", off);
     refresh();
+    setFullOnly(!getShowPreviews());
+    const saved = getSavedPreviews();
+    setSavedIds(new Set(saved.map((t) => t.id)));
     if (navigator.onLine) {
       setLoading(true);
-      trendingTracks().then(setResults).catch(() => {}).finally(() => setLoading(false));
+      trendingTracks().then((t) => setResults([...saved, ...t])).catch(() => {}).finally(() => setLoading(false));
     } else setTab("library");
     return () => {
       window.removeEventListener("online", on);
@@ -131,7 +137,7 @@ function App() {
     }
   };
 
-  const list = tab === "library" ? downloads.map((d) => d.track) : fullOnly ? results.filter((t) => t.source !== "preview") : results;
+  const list = tab === "library" ? downloads.map((d) => d.track) : fullOnly ? results.filter((t) => t.source !== "preview" || savedIds.has(t.id)) : results;
   const previewCount = results.filter((t) => t.source === "preview").length;
   const art = (t: Track) => artUrls.get(t.id) ?? (online ? t.artwork : "");
 
@@ -156,6 +162,9 @@ function App() {
             {online ? <Wifi className="h-3.5 w-3.5" /> : <WifiOff className="h-3.5 w-3.5" />}
             {online ? "Online" : "Offline"}
           </span>
+          <Link to="/admin" aria-label="Administração" className="rounded-full bg-card p-2 text-muted-foreground hover:text-foreground">
+            <Settings className="h-4 w-4" />
+          </Link>
         </div>
         <nav className="mx-auto flex max-w-6xl gap-2 overflow-x-auto px-5 pb-3">
           {([["home", "Descobrir", Flame], ["library", `Downloads (${downloads.length})`, Library]] as const).map(([k, label, Icon]) => (

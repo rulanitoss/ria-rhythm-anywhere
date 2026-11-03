@@ -134,3 +134,25 @@ export async function importFiles(files: FileList | File[]): Promise<number> {
   }
   return n;
 }
+
+export async function updateDownload(id: string, patch: Partial<Pick<Track, "title" | "artist">>) {
+  const all = await getDownloads();
+  const item = all.find((d) => d.track.id === id);
+  if (!item) return;
+  item.track = { ...item.track, ...patch };
+  await tx("readwrite", (s) => s.put(item));
+}
+
+export async function clearDownloads() {
+  await tx("readwrite", (s) => s.clear());
+}
+
+// ---------- Saved previews & settings (device-local) ----------
+const PK = "riamp:previews";
+const SK = "riamp:showPreviews";
+export const getSavedPreviews = (): Track[] => {
+  try { return JSON.parse(localStorage.getItem(PK) ?? "[]"); } catch { return []; }
+};
+export const setSavedPreviews = (t: Track[]) => localStorage.setItem(PK, JSON.stringify(t));
+export const getShowPreviews = () => localStorage.getItem(SK) === "1";
+export const setShowPreviews = (v: boolean) => localStorage.setItem(SK, v ? "1" : "0");
