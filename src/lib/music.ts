@@ -128,7 +128,7 @@ export async function importFiles(files: FileList | File[]): Promise<number> {
     if (!f.type.startsWith("audio/") && !/\.(mp3|m4a|aac|wav|ogg|flac|opus)$/i.test(f.name)) continue;
     const base = f.name.replace(/\.[^.]+$/, "").replace(/_/g, " ");
     const [artist, title] = base.includes(" - ") ? base.split(" - ", 2) : ["Minhas músicas", base];
-    const track: Track = { id: `local:${f.name}:${f.size}`, title: title.trim(), artist: artist.trim(), artwork: "", duration: await fileDuration(f), source: "local" };
+    const track: Track = { id: `local:${f.name}:${f.size}`, title: (title ?? base).trim(), artist: (artist ?? "").trim(), artwork: "", duration: await fileDuration(f), source: "local" };
     await tx("readwrite", (s) => s.put({ track, audio: f } as Stored));
     n++;
   }
