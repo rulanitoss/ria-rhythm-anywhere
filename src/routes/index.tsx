@@ -13,6 +13,7 @@ import {
 } from "@/lib/music";
 import { expandQuery } from "@/lib/smart-search.functions";
 import { searchCatalog } from "@/lib/catalog.functions";
+import { searchArchive } from "@/lib/archive.functions";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -80,13 +81,15 @@ function App() {
     try {
       const ai = await expandQuery({ data: { q } }).catch(() => ({ queries: [] as string[] }));
       setHints(ai.queries);
-      const [aud, yt] = await Promise.all([
+      const [aud, yt, ia] = await Promise.all([
         multiSearch(q, ai.queries),
         searchCatalog({ data: { q } }).catch(() => ({ items: [] })),
+        searchArchive({ data: { q } }).catch(() => ({ items: [] })),
       ]);
+      const iaTracks: Track[] = ia.items.map((i) => ({ ...i, source: "archive" as const }));
       const ytTracks: Track[] = yt.items.map((i) => ({ ...i, source: "preview" as const }));
       // big catalog first (every artist, previews), then the full downloadable catalog
-      setResults([...ytTracks, ...aud]);
+      setResults([...ytTracks, ...aud, ...iaTracks]);
     } finally {
       setLoading(false);
     }
