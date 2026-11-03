@@ -12,3 +12,4 @@
 - Music search: AI expands the query server-side (src/lib/smart-search.functions.ts), browser fans out to the Audius API and merges; downloads live in IndexedDB. Why: free legal catalog with CORS, offline playback without a backend.
 
 - Big-artist search uses the keyless iTunes Search API server-side (src/lib/catalog.functions.ts): 30s previews only, never downloadable. Why: user has no YouTube key; full tracks of major artists cannot be legally downloaded.
+- Full-length keyless source: Internet Archive search server-side (src/lib/archive.functions.ts); files are CORS-enabled so they download into IndexedDB like Audius.
