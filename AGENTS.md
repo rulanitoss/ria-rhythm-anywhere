@@ -8,3 +8,5 @@
 > Commits you push to the connected branch sync back to Lovable and show up in
 > the editor, so keep the branch in a working state.
 <!-- LOVABLE:END -->
+
+- Music search: AI expands the query server-side (src/lib/smart-search.functions.ts), browser fans out to the Audius API and merges; downloads live in IndexedDB. Why: free legal catalog with CORS, offline playback without a backend.

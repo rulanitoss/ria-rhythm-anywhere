@@ -1,9 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Search, Download, Check, Play, Pause, Trash2, WifiOff, Wifi, Library, Flame, SkipBack, SkipForward, Loader2 } from "lucide-react";
+import { Search, Download, Check, Play, Pause, Trash2, WifiOff, Wifi, Library, Flame, SkipBack, SkipForward, Loader2, Sparkles } from "lucide-react";
 import {
   type Track,
-  searchTracks,
+  multiSearch,
   trendingTracks,
   streamUrl,
   downloadTrack,
@@ -11,6 +11,7 @@ import {
   removeDownload,
   fmt,
 } from "@/lib/music";
+import { expandQuery } from "@/lib/smart-search.functions";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -34,6 +35,7 @@ function App() {
   const [q, setQ] = useState("");
   const [results, setResults] = useState<Track[]>([]);
   const [loading, setLoading] = useState(false);
+  const [hints, setHints] = useState<string[]>([]);
   const [downloads, setDownloads] = useState<{ track: Track; audio: Blob; art?: Blob }[]>([]);
   const [busy, setBusy] = useState<Record<string, boolean>>({});
   const [queue, setQueue] = useState<Track[]>([]);
@@ -75,7 +77,9 @@ function App() {
     setTab("home");
     setLoading(true);
     try {
-      setResults(await searchTracks(q));
+      const ai = await expandQuery({ data: { q } }).catch(() => ({ queries: [] as string[] }));
+      setHints(ai.queries);
+      setResults(await multiSearch(q, ai.queries));
     } finally {
       setLoading(false);
     }
@@ -125,22 +129,22 @@ function App() {
           <h1 className="font-display text-3xl font-extrabold tracking-tight">
             RI<span className="text-gradient">Amp</span>
           </h1>
-          <form onSubmit={doSearch} className="relative min-w-[220px] flex-1">
+          <form onSubmit={doSearch} className="relative order-3 w-full sm:order-none sm:w-auto sm:min-w-[220px] sm:flex-1">
             <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <input
               value={q}
               onChange={(e) => setQ(e.target.value)}
               disabled={!online}
-              placeholder={online ? "Pesquisar músicas, artistas..." : "Pesquisa indisponível offline"}
+              placeholder={online ? "Pesquise qualquer coisa: artista, estilo, humor..." : "Pesquisa indisponível offline"}
               className="w-full rounded-full border border-border bg-card py-3 pl-11 pr-4 text-sm outline-none transition focus:border-primary disabled:opacity-50"
             />
           </form>
-          <span className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold ${online ? "bg-primary/15 text-primary" : "bg-destructive/15 text-destructive"}`}>
+          <span className={`ml-auto sm:ml-0 flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold ${online ? "bg-primary/15 text-primary" : "bg-destructive/15 text-destructive"}`}>
             {online ? <Wifi className="h-3.5 w-3.5" /> : <WifiOff className="h-3.5 w-3.5" />}
             {online ? "Online" : "Offline"}
           </span>
         </div>
-        <nav className="mx-auto flex max-w-6xl gap-2 px-5 pb-3">
+        <nav className="mx-auto flex max-w-6xl gap-2 overflow-x-auto px-5 pb-3">
           {([["home", "Descobrir", Flame], ["library", `Downloads (${downloads.length})`, Library]] as const).map(([k, label, Icon]) => (
             <button
               key={k}
@@ -160,6 +164,14 @@ function App() {
         {tab === "library" && downloads.length === 0 && (
           <p className="rounded-2xl bg-card p-6 text-muted-foreground">Nenhuma música baixada ainda. Toque no ícone de download em qualquer faixa.</p>
         )}
+        {tab === "home" && online && hints.length > 0 && !loading && (
+          <div className="mb-6 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+            <Sparkles className="h-4 w-4 text-primary" /> A IA também procurou:
+            {hints.map((h) => (
+              <span key={h} className="rounded-full bg-card px-3 py-1">{h}</span>
+            ))}
+          </div>
+        )}
         {loading ? (
           <div className="flex justify-center py-20"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
         ) : (
@@ -177,7 +189,7 @@ function App() {
                         onClick={() => play(t, list)}
                         disabled={disabled}
                         aria-label="Tocar"
-                        className={`absolute bottom-2 right-2 grid h-11 w-11 place-items-center rounded-full bg-primary text-primary-foreground shadow-glow transition ${isCur ? "opacity-100" : "opacity-0 group-hover:opacity-100"}`}
+                        className={`absolute bottom-2 right-2 grid h-11 w-11 place-items-center rounded-full bg-primary text-primary-foreground shadow-glow transition ${isCur ? "opacity-100" : "opacity-100 md:opacity-0 md:group-hover:opacity-100"}`}
                       >
                         {isCur && playing ? <Pause className="h-5 w-5" /> : <Play className="h-5 w-5 translate-x-px" />}
                       </button>
@@ -216,9 +228,9 @@ function App() {
       />
 
       {current && (
-        <footer className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-card/95 backdrop-blur-xl">
+        <footer className="fixed inset-x-0 bottom-0 z-30 pb-[env(safe-area-inset-bottom)] border-t border-border bg-card/95 backdrop-blur-xl">
           <div className="mx-auto flex max-w-6xl items-center gap-4 px-5 py-3">
-            {art(current) && <img src={art(current)} alt="" className="h-14 w-14 rounded-lg object-cover" />}
+            {art(current) && <img src={art(current)} alt="" className="hidden h-14 w-14 rounded-lg sm:block object-cover" />}
             <div className="min-w-0 flex-1">
               <p className="truncate text-sm font-semibold">{current.title}</p>
               <p className="truncate text-xs text-muted-foreground">{current.artist}</p>
