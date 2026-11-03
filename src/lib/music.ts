@@ -5,7 +5,7 @@ export type Track = {
   artwork: string;
   duration: number;
   genre?: string;
-  source?: "audius" | "preview";
+  source?: "audius" | "preview" | "archive";
   preview?: string;
 };
 
@@ -98,7 +98,7 @@ function tx<T>(mode: IDBTransactionMode, fn: (s: IDBObjectStore) => IDBRequest<T
 }
 
 export async function downloadTrack(track: Track): Promise<void> {
-  const audio = await (await fetch(streamUrl(track.id))).blob();
+  const audio = await (await fetch(track.preview || streamUrl(track.id))).blob();
   let art: Blob | undefined;
   try {
     if (track.artwork) art = await (await fetch(track.artwork)).blob();
