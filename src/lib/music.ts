@@ -5,7 +5,8 @@ export type Track = {
   artwork: string;
   duration: number;
   genre?: string;
-  source?: "audius" | "youtube";
+  source?: "audius" | "preview";
+  preview?: string;
 };
 
 const API = "https://api.audius.co/v1";
