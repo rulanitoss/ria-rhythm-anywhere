@@ -7,6 +7,8 @@ export type Track = {
   genre?: string;
   source?: "audius" | "preview" | "archive" | "local";
   preview?: string;
+  /** Web page of the track on its source site (opens in a new tab for manual download). */
+  pageUrl?: string;
 };
 
 const API = "https://api.audius.co/v1";
@@ -20,6 +22,7 @@ function map(t: any): Track {
     artwork: t.artwork?.["480x480"] ?? t.artwork?.["150x150"] ?? "",
     duration: t.duration ?? 0,
     genre: t.genre,
+    pageUrl: t.permalink ? `https://audius.co${t.permalink}` : undefined,
   };
 }
 
