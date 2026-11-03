@@ -22,7 +22,7 @@ function map(t: any): Track {
     artwork: t.artwork?.["480x480"] ?? t.artwork?.["150x150"] ?? "",
     duration: t.duration ?? 0,
     genre: t.genre,
-    pageUrl: t.permalink ? `https://audius.co${t.permalink}` : undefined,
+    ...(t.permalink ? { pageUrl: `https://audius.co${t.permalink}` } : {}),
   };
 }
 
