@@ -38,6 +38,7 @@ function App() {
   const [results, setResults] = useState<Track[]>([]);
   const [loading, setLoading] = useState(false);
   const [hints, setHints] = useState<string[]>([]);
+  const [fullOnly, setFullOnly] = useState(true);
   const [downloads, setDownloads] = useState<{ track: Track; audio: Blob; art?: Blob }[]>([]);
   const [busy, setBusy] = useState<Record<string, boolean>>({});
   const [queue, setQueue] = useState<Track[]>([]);
@@ -89,7 +90,7 @@ function App() {
       const iaTracks: Track[] = ia.items.map((i) => ({ ...i, source: "archive" as const }));
       const ytTracks: Track[] = yt.items.map((i) => ({ ...i, source: "preview" as const }));
       // big catalog first (every artist, previews), then the full downloadable catalog
-      setResults([...ytTracks, ...aud, ...iaTracks]);
+      setResults([...aud, ...iaTracks, ...ytTracks]);
     } finally {
       setLoading(false);
     }
@@ -129,7 +130,8 @@ function App() {
     }
   };
 
-  const list = tab === "library" ? downloads.map((d) => d.track) : results;
+  const list = tab === "library" ? downloads.map((d) => d.track) : fullOnly ? results.filter((t) => t.source !== "preview") : results;
+  const previewCount = results.filter((t) => t.source === "preview").length;
   const art = (t: Track) => artUrls.get(t.id) ?? (online ? t.artwork : "");
 
   return (
@@ -181,6 +183,15 @@ function App() {
               <span key={h} className="rounded-full bg-card px-3 py-1">{h}</span>
             ))}
           </div>
+        )}
+        {tab === "home" && online && !loading && previewCount > 0 && (
+          <label className="mb-6 flex w-fit cursor-pointer items-center gap-2 rounded-full bg-card px-4 py-2 text-sm">
+            <input type="checkbox" checked={!fullOnly} onChange={(e) => setFullOnly(!e.target.checked)} className="accent-primary" />
+            Mostrar também {previewCount} prévias de 30s de artistas famosos
+          </label>
+        )}
+        {tab === "home" && online && !loading && fullOnly && list.length === 0 && results.length > 0 && (
+          <p className="mb-6 rounded-2xl bg-card p-6 text-muted-foreground">Não encontrei músicas completas para esta pesquisa. Ative as prévias acima para ouvir 30s.</p>
         )}
         {loading ? (
           <div className="flex justify-center py-20"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
