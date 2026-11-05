@@ -1,7 +1,9 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { Blob as NodeBlob } from "node:buffer";
 import { downloadTrack, fetchAudio } from "@/lib/music";
 
 afterEach(() => vi.unstubAllGlobals());
+beforeEach(() => vi.stubGlobal("Blob", NodeBlob));
 describe("Direct audio downloads", () => {
   it("never downloads famous-artist previews", async () => {
     const fetch = vi.fn(); vi.stubGlobal("fetch", fetch);
