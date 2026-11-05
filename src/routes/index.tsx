@@ -1,6 +1,8 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Search, Download, Check, Play, Pause, Trash2, WifiOff, Wifi, Library, Flame, SkipBack, SkipForward, Loader2, Sparkles, Upload, Settings, ExternalLink } from "lucide-react";
+import { Search, Download, Check, Play, Pause, Trash2, WifiOff, Wifi, Library, Flame, SkipBack, SkipForward, Loader2, Sparkles, Upload, Settings, ExternalLink, Link2, X } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { filterTracks, rankTracks } from "@/lib/music-search";
 import {
   type Track,
   multiSearch,
@@ -13,6 +15,7 @@ import {
   importFiles,
   getSavedPreviews,
   getShowPreviews,
+  importAudioLink,
 } from "@/lib/music";
 import { expandQuery } from "@/lib/smart-search.functions";
 import { searchCatalog } from "@/lib/catalog.functions";
@@ -49,6 +52,16 @@ function App() {
   const [current, setCurrent] = useState<Track | null>(null);
   const [playing, setPlaying] = useState(false);
   const [time, setTime] = useState(0);
+  const [searched, setSearched] = useState("");
+  const [notice, setNotice] = useState("");
+  const [progress, setProgress] = useState<Record<string, number | null>>({});
+  const [link, setLink] = useState("");
+  const [linkTitle, setLinkTitle] = useState("");
+  const [linkBusy, setLinkBusy] = useState(false);
+  const [linkProgress, setLinkProgress] = useState<number | null>(null);
+  const searchId = useRef(0);
+  const initialSearchId = useRef(0);
+  const controllers = useRef(new Map<string, AbortController>());
   const audioRef = useRef<HTMLAudioElement>(null);
   const urlRef = useRef<string | null>(null);
 
@@ -73,7 +86,8 @@ function App() {
     setSavedIds(new Set(saved.map((t) => t.id)));
     if (navigator.onLine) {
       setLoading(true);
-      trendingTracks().then((t) => setResults([...saved, ...t])).catch(() => {}).finally(() => setLoading(false));
+      const id = initialSearchId.current;
+      trendingTracks().then((t) => { if (initialSearchId.current === id) setResults([...saved, ...t]); }).catch(() => {}).finally(() => { if (initialSearchId.current === id) setLoading(false); });
     } else setTab("library");
     return () => {
       window.removeEventListener("online", on);
@@ -83,28 +97,44 @@ function App() {
 
   const doSearch = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!q.trim() || !online) return;
+    const query = q.trim();
+    if (!query) return;
+    if (tab === "library") { setSearched(query); return; }
+    if (!online) return;
+    const id = ++searchId.current;
+    initialSearchId.current++;
     setTab("home");
+    setSearched(query);
+    setResults([]);
+    setHints([]);
+    setNotice("");
     setLoading(true);
+    let merged: Track[] = [];
+    const add = (tracks: Track[]) => {
+      if (searchId.current !== id) return;
+      merged = rankTracks([...merged, ...tracks], query);
+      setResults(merged);
+    };
     try {
-      const ai = await expandQuery({ data: { q } }).catch(() => ({ queries: [] as string[] }));
-      setHints(ai.queries);
-      const [aud, yt, ia] = await Promise.all([
-        multiSearch(q, ai.queries),
-        searchCatalog({ data: { q } }).catch(() => ({ items: [] })),
-        searchArchive({ data: { q } }).catch(() => ({ items: [] })),
+      await Promise.allSettled([
+        multiSearch(query, []).then(add),
+        searchCatalog({ data: { q: query } }).then((r) => add(r.items.map((i) => ({ ...i, source: "preview" as const })))),
+        searchArchive({ data: { q: query } }).then((r) => add(r.items.map((i) => ({ ...i, source: "archive" as const, pageUrl: `https://archive.org/details/${i.id.slice(3).split("/")[0]}` })))),
+        expandQuery({ data: { q: query } }).then(async (ai) => {
+          if (searchId.current !== id) return;
+          setHints(ai.queries);
+          if (ai.queries.length) add(await multiSearch(query, ai.queries));
+        }),
       ]);
-      const iaTracks: Track[] = ia.items.map((i) => ({ ...i, source: "archive" as const, pageUrl: `https://archive.org/details/${i.id.slice(3).split("/")[0]}` }));
-      const ytTracks: Track[] = yt.items.map((i) => ({ ...i, source: "preview" as const }));
-      // big catalog first (every artist, previews), then the full downloadable catalog
-      setResults([...aud, ...iaTracks, ...ytTracks]);
+      if (searchId.current === id && !merged.length) setNotice("Nenhuma música encontrada. Tente o nome do artista ou da faixa.");
     } finally {
-      setLoading(false);
+      if (searchId.current === id) setLoading(false);
     }
   };
 
   const play = (t: Track, list: Track[]) => {
-    const a = audioRef.current!;
+    const a = audioRef.current;
+    if (!a) return;
     if (current?.id === t.id) {
       a.paused ? a.play() : a.pause();
       return;
@@ -128,16 +158,24 @@ function App() {
   };
 
   const download = async (t: Track) => {
+    if (controllers.current.has(t.id)) return;
+    const controller = new AbortController();
+    controllers.current.set(t.id, controller);
+    setNotice("");
     setBusy((b) => ({ ...b, [t.id]: true }));
     try {
-      await downloadTrack(t);
+      await downloadTrack(t, (p) => setProgress((old) => ({ ...old, [t.id]: p })), controller.signal);
       await refresh();
+      setNotice(`“${t.title}” salva em Downloads para ouvir offline.`);
+    } catch (error) {
+      setNotice(controller.signal.aborted ? "Download cancelado." : error instanceof Error && error.message !== "Failed to fetch" ? error.message : "A fonte bloqueou o download direto. Baixe no site e importe o arquivo do aparelho.");
     } finally {
+      controllers.current.delete(t.id);
       setBusy((b) => ({ ...b, [t.id]: false }));
     }
   };
 
-  const list = tab === "library" ? downloads.map((d) => d.track) : fullOnly ? results.filter((t) => t.source !== "preview" || savedIds.has(t.id)) : results;
+  const list = tab === "library" ? filterTracks(downloads.map((d) => d.track), q) : fullOnly ? results.filter((t) => t.source !== "preview" || (!searched && savedIds.has(t.id))) : results;
   const siteLink = (t: Track) => t.pageUrl ?? `https://suamusica.com.br/busca/${encodeURIComponent(`${t.artist} ${t.title}`.trim())}`;
   const previewCount = results.filter((t) => t.source === "preview").length;
   const art = (t: Track) => artUrls.get(t.id) ?? (online ? t.artwork : "");
@@ -154,10 +192,13 @@ function App() {
             <input
               value={q}
               onChange={(e) => setQ(e.target.value)}
-              disabled={!online}
-              placeholder={online ? "Pesquise qualquer coisa: artista, estilo, humor..." : "Pesquisa indisponível offline"}
-              className="w-full rounded-full border border-border bg-card py-3 pl-11 pr-4 text-sm outline-none transition focus:border-primary disabled:opacity-50"
+              disabled={!online && tab !== "library"}
+              aria-label="Pesquisar músicas"
+              maxLength={200}
+              placeholder={tab === "library" ? "Pesquisar nas músicas baixadas..." : online ? "Artista, música ou estilo..." : "Pesquisa indisponível offline"}
+              className="w-full rounded-full border border-border bg-card py-3 pl-11 pr-14 text-sm outline-none transition focus:border-primary disabled:opacity-50"
             />
+            <Button type="submit" size="icon" variant="ghost" disabled={!q.trim() || (!online && tab !== "library")} aria-label="Buscar" title="Buscar" className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full"><Search /></Button>
           </form>
           <span className={`ml-auto sm:ml-0 flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold ${online ? "bg-primary/15 text-primary" : "bg-destructive/15 text-destructive"}`}>
             {online ? <Wifi className="h-3.5 w-3.5" /> : <WifiOff className="h-3.5 w-3.5" />}
@@ -171,7 +212,7 @@ function App() {
           {([["home", "Descobrir", Flame], ["library", `Downloads (${downloads.length})`, Library]] as const).map(([k, label, Icon]) => (
             <button
               key={k}
-              onClick={() => setTab(k)}
+              onClick={() => { setTab(k); setQ(""); }}
               className={`flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition ${tab === k ? "bg-primary text-primary-foreground" : "bg-card text-muted-foreground hover:text-foreground"}`}
             >
               <Icon className="h-4 w-4" /> {label}
@@ -181,6 +222,7 @@ function App() {
       </header>
 
       <main className="mx-auto max-w-6xl px-5 py-8">
+        {notice && <p role="status" className="mb-6 border-l-2 border-primary py-2 pl-4 text-sm">{notice}</p>}
         {tab === "home" && !online && (
           <p className="rounded-2xl bg-card p-6 text-muted-foreground">Você está offline. Abra os Downloads para ouvir suas músicas instaladas.</p>
         )}
@@ -193,15 +235,32 @@ function App() {
               multiple
               className="hidden"
               onChange={async (e) => {
-                if (e.target.files?.length) { await importFiles(e.target.files); await refresh(); }
+                try {
+                  if (e.target.files?.length) { const n = await importFiles(e.target.files); await refresh(); setNotice(`${n} música(s) adicionada(s) em Downloads.`); }
+                } catch { setNotice("Não foi possível importar. Confira o espaço disponível no aparelho."); }
                 e.target.value = "";
               }}
             />
           </label>
         )}
         {tab === "library" && online && (
+          <form className="mb-8 space-y-3 border-b border-border pb-6" onSubmit={async (e) => {
+            e.preventDefault(); setLinkBusy(true); setNotice(""); setLinkProgress(null);
+            try { await importAudioLink(link, linkTitle, setLinkProgress); await refresh(); setLink(""); setLinkTitle(""); setQ(""); setNotice("Música salva em Downloads para ouvir offline."); }
+            catch (error) { setNotice(error instanceof Error && error.message !== "Failed to fetch" ? error.message : "O site não permite importar este link. Baixe lá e adicione o arquivo do aparelho."); }
+            finally { setLinkBusy(false); }
+          }}>
+            <h2 className="flex items-center gap-2 text-sm font-semibold"><Link2 className="h-4 w-4 text-primary" /> Importar áudio por link</h2>
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <input aria-label="Link direto de áudio" type="url" required value={link} onChange={(e) => setLink(e.target.value)} placeholder="https://.../musica.mp3" className="min-w-0 flex-1 rounded-md border border-border bg-card px-3 py-2 text-sm" disabled={linkBusy} />
+              <input aria-label="Nome da música" value={linkTitle} onChange={(e) => setLinkTitle(e.target.value)} placeholder="Nome da música (opcional)" className="min-w-0 rounded-md border border-border bg-card px-3 py-2 text-sm" disabled={linkBusy} />
+              <Button type="submit" disabled={linkBusy || !link.trim()}>{linkBusy ? <Loader2 className="animate-spin" /> : <Download />} {linkBusy ? linkProgress === null ? "Baixando…" : `${linkProgress}%` : "Importar"}</Button>
+            </div>
+          </form>
+        )}
+        {tab === "library" && online && (
           <div className="mb-8">
-            <p className="mb-3 text-sm font-semibold">Onde baixar músicas <span className="font-normal text-muted-foreground">— baixe lá e adicione aqui com o botão acima</span></p>
+            <p className="mb-3 text-sm font-semibold">Sites externos <span className="font-normal text-muted-foreground">— arquivos baixados lá precisam ser importados do aparelho</span></p>
             <div className="flex flex-wrap gap-2">
               {[
                 ["Sua Música", "https://suamusica.com.br", "CDs de artistas brasileiros"],
@@ -231,15 +290,14 @@ function App() {
             ))}
           </div>
         )}
-        {tab === "home" && online && !loading && hints.length > 0 && (
+        {tab === "home" && online && !loading && searched && list.length === 0 && (
           <a
-            href={`https://suamusica.com.br/busca/${encodeURIComponent(q.trim())}`}
+            href={`https://suamusica.com.br/busca/${encodeURIComponent(searched)}`}
             target="_blank"
             rel="noopener noreferrer"
             className="mb-4 flex w-fit items-center gap-2 rounded-full border border-border bg-card px-4 py-2 text-sm hover:border-primary"
           >
-            Procurar "{q.trim()}" no Sua Música ↗
-            <span className="text-xs text-muted-foreground">baixe lá e adicione em Downloads</span>
+            Procurar "{searched}" no Sua Música ↗
           </a>
         )}
         {tab === "home" && online && !loading && previewCount > 0 && (
@@ -251,8 +309,9 @@ function App() {
         {tab === "home" && online && !loading && fullOnly && list.length === 0 && results.length > 0 && (
           <p className="mb-6 rounded-2xl bg-card p-6 text-muted-foreground">Não encontrei músicas completas para esta pesquisa. Ative as prévias acima para ouvir 30s.</p>
         )}
-        {loading ? (
-          <div className="flex justify-center py-20"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
+        {tab === "home" && searched && <div className="mb-4 flex items-center gap-2 text-sm text-muted-foreground"><span>{list.length} {fullOnly ? "músicas completas" : "resultados"} · {searched}</span>{loading && <Loader2 className="h-4 w-4 animate-spin text-primary" />}</div>}
+        {loading && tab === "home" && list.length === 0 ? (
+          <div role="status" className="flex items-center justify-center gap-3 py-20"><Loader2 className="h-6 w-6 animate-spin text-primary" /> Procurando músicas…</div>
         ) : (
           (tab === "library" || online) && (
             <div className="grid grid-cols-2 gap-5 sm:grid-cols-3 lg:grid-cols-5">
@@ -284,8 +343,8 @@ function App() {
                           href={siteLink(t)}
                           target="_blank"
                           rel="noopener noreferrer"
-                          aria-label={`Abrir site para baixar ${t.title}`}
-                          title="Baixar esta música no site — abre em nova aba"
+                          aria-label={`Abrir site de ${t.title}`}
+                          title="Site da música — abre em nova aba, não salva no RIAmp"
                           className="shrink-0 p-1 text-muted-foreground transition hover:text-primary"
                         >
                           <ExternalLink className="h-4 w-4" />
@@ -297,14 +356,17 @@ function App() {
                         </button>
                       ) : isYt ? (
                         <span title="Prévia de 30 segundos, só online, sem download" className="shrink-0 rounded bg-secondary px-1.5 py-0.5 text-[10px] font-bold text-muted-foreground">Prévia</span>
-                      ) : isDl ? (
-                        <Check className="h-4 w-4 text-primary" />
-                      ) : (
-                        <button aria-label="Baixar" disabled={busy[t.id]} onClick={() => download(t)} className="text-muted-foreground hover:text-primary">
-                          {busy[t.id] ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
-                        </button>
-                      )}
+                       ) : null}
                     </div>
+                     {!isYt && tab === "home" && (
+                       <div className="mt-3 flex min-h-8 items-center gap-1">
+                         <Button size="sm" variant={isDl ? "ghost" : "secondary"} disabled={isDl || busy[t.id] || !online} onClick={() => download(t)} aria-label={`Baixar ${t.title} no RIAmp`} className="min-w-0 flex-1 px-2 text-xs">
+                           {isDl ? <Check /> : busy[t.id] ? <Loader2 className="animate-spin" /> : <Download />}
+                           {isDl ? "Salva offline" : busy[t.id] ? progress[t.id] == null ? "Baixando…" : `${progress[t.id]}%` : "Baixar no RIAmp"}
+                         </Button>
+                         {busy[t.id] && <Button size="icon" variant="ghost" title="Cancelar download" aria-label={`Cancelar download de ${t.title}`} onClick={() => controllers.current.get(t.id)?.abort()}><X /></Button>}
+                       </div>
+                     )}
                   </div>
                 );
               })}
@@ -335,7 +397,7 @@ function App() {
                   min={0}
                   max={current.duration || 1}
                   value={time}
-                  onChange={(e) => (audioRef.current!.currentTime = +e.target.value)}
+                   onChange={(e) => { if (audioRef.current) audioRef.current.currentTime = +e.target.value; }}
                   className="h-1 flex-1 accent-primary"
                 />
                 <span>{fmt(current.duration)}</span>
