@@ -210,13 +210,13 @@ function App() {
         </div>
         <nav className="mx-auto flex max-w-6xl gap-2 overflow-x-auto px-5 pb-3">
           {([["home", "Descobrir", Flame], ["library", `Downloads (${downloads.length})`, Library]] as const).map(([k, label, Icon]) => (
-            <button
+            <Button
               key={k}
               onClick={() => { setTab(k); setQ(""); }}
               className={`flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition ${tab === k ? "bg-primary text-primary-foreground" : "bg-card text-muted-foreground hover:text-foreground"}`}
             >
               <Icon className="h-4 w-4" /> {label}
-            </button>
+            </Button>
           ))}
         </nav>
       </header>
@@ -324,14 +324,14 @@ function App() {
                   <div key={t.id} className={`group rounded-2xl bg-card p-3 transition hover:bg-secondary ${disabled ? "opacity-40" : ""}`}>
                     <div className="relative aspect-square overflow-hidden rounded-xl bg-muted">
                       {art(t) && <img src={art(t)} alt={t.title} loading="lazy" className="h-full w-full object-cover" />}
-                      <button
+                      <Button
                         onClick={() => play(t, list)}
                         disabled={disabled}
                         aria-label="Tocar"
                         className={`absolute bottom-2 right-2 grid h-11 w-11 place-items-center rounded-full bg-primary text-primary-foreground shadow-glow transition ${isCur ? "opacity-100" : "opacity-100 md:opacity-0 md:group-hover:opacity-100"}`}
                       >
                         {isCur && playing ? <Pause className="h-5 w-5" /> : <Play className="h-5 w-5 translate-x-px" />}
-                      </button>
+                      </Button>
                     </div>
                     <div className="mt-3 flex items-start gap-2">
                       <div className="min-w-0 flex-1">
@@ -351,9 +351,9 @@ function App() {
                         </a>
                       )}
                       {tab === "library" ? (
-                        <button aria-label="Remover" onClick={() => removeDownload(t.id).then(refresh)} className="text-muted-foreground hover:text-destructive">
+                        <Button aria-label="Remover" onClick={() => removeDownload(t.id).then(refresh)} className="text-muted-foreground hover:text-destructive">
                           <Trash2 className="h-4 w-4" />
-                        </button>
+                        </Button>
                       ) : isYt ? (
                         <span title="Prévia de 30 segundos, só online, sem download" className="shrink-0 rounded bg-secondary px-1.5 py-0.5 text-[10px] font-bold text-muted-foreground">Prévia</span>
                        ) : null}
@@ -405,11 +405,11 @@ function App() {
               {current.source === "preview" && <p className="mt-1 text-[10px] text-muted-foreground">Prévia de 30s · só online</p>}
             </div>
             <div className="flex items-center gap-2">
-              <button aria-label="Anterior" onClick={() => step(-1)} className="p-2 text-muted-foreground hover:text-foreground"><SkipBack className="h-5 w-5" /></button>
-              <button aria-label="Tocar/Pausar" onClick={() => play(current, queue)} className="grid h-12 w-12 place-items-center rounded-full bg-primary text-primary-foreground shadow-glow">
+              <Button aria-label="Anterior" onClick={() => step(-1)} className="p-2 text-muted-foreground hover:text-foreground"><SkipBack className="h-5 w-5" /></Button>
+              <Button aria-label="Tocar/Pausar" onClick={() => play(current, queue)} className="grid h-12 w-12 place-items-center rounded-full bg-primary text-primary-foreground shadow-glow">
                 {playing ? <Pause className="h-5 w-5" /> : <Play className="h-5 w-5 translate-x-px" />}
-              </button>
-              <button aria-label="Próxima" onClick={() => step(1)} className="p-2 text-muted-foreground hover:text-foreground"><SkipForward className="h-5 w-5" /></button>
+              </Button>
+              <Button aria-label="Próxima" onClick={() => step(1)} className="p-2 text-muted-foreground hover:text-foreground"><SkipForward className="h-5 w-5" /></Button>
             </div>
           </div>
         </footer>
