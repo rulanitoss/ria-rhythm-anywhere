@@ -21,6 +21,7 @@ function map(t: any): Track {
     artist: t.user?.name ?? "Artista",
     artwork: t.artwork?.["480x480"] ?? t.artwork?.["150x150"] ?? "",
     duration: t.duration ?? 0,
+    source: "audius",
     genre: t.genre,
     ...(t.permalink ? { pageUrl: `https://audius.co${t.permalink}` } : {}),
   };
@@ -93,20 +94,67 @@ function tx<T>(mode: IDBTransactionMode, fn: (s: IDBObjectStore) => IDBRequest<T
   return db().then(
     (d) =>
       new Promise<T>((res, rej) => {
-        const r = fn(d.transaction("tracks", mode).objectStore("tracks"));
-        r.onsuccess = () => res(r.result);
-        r.onerror = () => rej(r.error);
+        const transaction = d.transaction("tracks", mode);
+        const r = fn(transaction.objectStore("tracks"));
+        transaction.oncomplete = () => { res(r.result); d.close(); };
+        transaction.onerror = () => { rej(transaction.error ?? r.error); d.close(); };
+        transaction.onabort = () => { rej(transaction.error ?? new Error("Não foi possível salvar no aparelho.")); d.close(); };
       }),
   );
 }
 
-export async function downloadTrack(track: Track): Promise<void> {
-  const audio = await (await fetch(track.preview || streamUrl(track.id))).blob();
+export async function fetchAudio(url: string, onProgress?: (percent: number | null) => void, signal?: AbortSignal): Promise<Blob> {
+  const response = await fetch(url, { signal: signal ?? AbortSignal.timeout(120000) });
+  if (!response.ok) throw new Error("A fonte não liberou o arquivo. Tente novamente ou importe do aparelho.");
+  const type = response.headers.get("content-type")?.split(";")[0] ?? "";
+  if (!type.startsWith("audio/") && !["application/octet-stream", "binary/octet-stream"].includes(type)) {
+    throw new Error("Este link é uma página, não um arquivo de música. Use um link direto de áudio ou importe do aparelho.");
+  }
+  const total = Number(response.headers.get("content-length")) || 0;
+  const reader = response.body?.getReader();
+  if (!reader) throw new Error("Não foi possível ler o arquivo de música.");
+  const chunks: Uint8Array<ArrayBuffer>[] = [];
+  let size = 0;
+  onProgress?.(null);
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    size += value.byteLength;
+    if (size > 200 * 1024 * 1024) { await reader.cancel(); throw new Error("O arquivo ultrapassa 200 MB."); }
+    chunks.push(new Uint8Array(value));
+    onProgress?.(total ? Math.min(99, Math.round(size / total * 100)) : null);
+  }
+  if (!size) throw new Error("A fonte enviou um arquivo vazio.");
+  const audio = new Blob(chunks, { type });
+  const prefix = new TextDecoder().decode(await audio.slice(0, 512).arrayBuffer()).trim().toLowerCase();
+  if (prefix.startsWith("<") || prefix.startsWith("{")) throw new Error("O link não contém um arquivo de música.");
+  return audio;
+}
+
+export async function downloadTrack(track: Track, onProgress?: (percent: number | null) => void, signal?: AbortSignal): Promise<void> {
+  if (track.source === "preview") throw new Error("Prévias não podem ser baixadas.");
+  const audio = await fetchAudio(track.preview || streamUrl(track.id), onProgress, signal);
   let art: Blob | undefined;
   try {
-    if (track.artwork) art = await (await fetch(track.artwork)).blob();
+    if (track.artwork) {
+      const response = await fetch(track.artwork, { signal: AbortSignal.timeout(5000) });
+      if (response.ok) art = await response.blob();
+    }
   } catch {}
   await tx("readwrite", (s) => s.put({ track, audio, art } as Stored));
+  onProgress?.(100);
+}
+
+export async function importAudioLink(value: string, title: string, onProgress?: (percent: number | null) => void): Promise<void> {
+  let url: URL;
+  try { url = new URL(value); } catch { throw new Error("Cole um link HTTPS válido de um arquivo de áudio."); }
+  if (url.protocol !== "https:" || url.username || url.password) throw new Error("Use um link HTTPS sem dados de acesso.");
+  const audio = await fetchAudio(url.href, onProgress);
+  const duration = await fileDuration(audio);
+  if (!duration) throw new Error("Este arquivo não pode ser reproduzido como música neste aparelho.");
+  const track: Track = { id: `link:${url.href}`, title: title.trim() || decodeURIComponent(url.pathname.split("/").pop() ?? "Música importada"), artist: "Importada por link", artwork: "", duration, source: "local" };
+  await tx("readwrite", (s) => s.put({ track, audio } as Stored));
+  onProgress?.(100);
 }
 
 export const getDownloads = () => tx<Stored[]>("readonly", (s) => s.getAll());
@@ -119,8 +167,10 @@ const fileDuration = (f: Blob) =>
     const a = new Audio();
     const u = URL.createObjectURL(f);
     a.preload = "metadata";
-    a.onloadedmetadata = () => { res(isFinite(a.duration) ? a.duration : 0); URL.revokeObjectURL(u); };
-    a.onerror = () => { res(0); URL.revokeObjectURL(u); };
+    const finish = (duration: number) => { clearTimeout(timer); a.removeAttribute("src"); a.load(); URL.revokeObjectURL(u); res(duration); };
+    const timer = setTimeout(() => finish(0), 15000);
+    a.onloadedmetadata = () => finish(isFinite(a.duration) ? a.duration : 0);
+    a.onerror = () => finish(0);
     a.src = u;
   });
 
