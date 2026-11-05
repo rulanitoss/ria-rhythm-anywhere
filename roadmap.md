@@ -1,6 +1,6 @@
 # RIAmp roadmap
-- [ ] Melhorar busca: resultados imediatos, relevância e filtro nos downloads
-- [ ] Baixar dentro do app com progresso e importar link direto de áudio
+- [x] Melhorar busca: resultados imediatos, relevância e filtro nos downloads
+- [x] Baixar dentro do app com progresso e importar link direto de áudio
 - [x] Busca com IA + catálogo Audius com download offline
 - [x] Todos os artistas sem chave do YouTube: usar catálogo iTunes (prévias de 30s, só online)
 - [x] Botão "abrir site para baixar" em cada música (página da faixa na fonte; Sua Música como alternativa)
