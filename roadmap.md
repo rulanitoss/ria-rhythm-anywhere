@@ -1,5 +1,5 @@
 # RIAmp roadmap
-- [ ] Importar músicas da pasta selecionada, incluindo subpastas, com autorização do usuário
+- [x] Importar músicas da pasta selecionada, incluindo subpastas, com autorização do usuário
 - [x] Melhorar busca: resultados imediatos, relevância e filtro nos downloads
 - [x] Baixar dentro do app com progresso e importar link direto de áudio
 - [x] Busca com IA + catálogo Audius com download offline
