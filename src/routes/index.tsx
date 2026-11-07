@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Search, Download, Check, Play, Pause, Trash2, WifiOff, Wifi, Library, Flame, SkipBack, SkipForward, Loader2, Sparkles, Settings, ExternalLink, Link2, X } from "lucide-react";
+import { Search, Download, Check, Play, Pause, Trash2, WifiOff, Wifi, Library, Flame, SkipBack, SkipForward, Loader2, Sparkles, Settings, Link2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { MusicImport } from "@/components/music-import";
 import { filterTracks, rankTracks } from "@/lib/music-search";
@@ -10,6 +10,7 @@ import {
   trendingTracks,
   streamUrl,
   downloadTrack,
+  directDownloadUrl,
   getDownloads,
   removeDownload,
   fmt,
@@ -176,7 +177,6 @@ function App() {
   };
 
   const list = tab === "library" ? filterTracks(downloads.map((d) => d.track), q) : fullOnly ? results.filter((t) => t.source !== "preview" || (!searched && savedIds.has(t.id))) : results;
-  const siteLink = (t: Track) => t.pageUrl ?? `https://suamusica.com.br/busca/${encodeURIComponent(`${t.artist} ${t.title}`.trim())}`;
   const previewCount = results.filter((t) => t.source === "preview").length;
   const art = (t: Track) => artUrls.get(t.id) ?? (online ? t.artwork : "");
 
@@ -303,6 +303,7 @@ function App() {
                 const isDl = downloaded.has(t.id);
                 const isCur = current?.id === t.id;
                 const isYt = t.source === "preview";
+                const canDownload = directDownloadUrl(t) !== null;
                 const disabled = !online && !isDl;
                 return (
                   <div key={t.id} className={`group rounded-2xl bg-card p-3 transition hover:bg-secondary ${disabled ? "opacity-40" : ""}`}>
@@ -322,17 +323,18 @@ function App() {
                         <p className={`truncate text-sm font-semibold ${isCur ? "text-primary" : ""}`}>{t.title}</p>
                         <p className="truncate text-xs text-muted-foreground">{t.artist}</p>
                       </div>
-                      {tab === "home" && (
-                        <a
-                          href={siteLink(t)}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          aria-label={`Abrir site de ${t.title}`}
-                          title="Site da música — abre em nova aba, não salva no RIAmp"
-                          className="shrink-0 p-1 text-muted-foreground transition hover:text-primary"
+                      {tab === "home" && !isYt && (
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          disabled={isDl || busy[t.id] || !online || !canDownload}
+                          onClick={() => download(t)}
+                          aria-label={`Baixar direto da fonte: ${t.title}`}
+                          title={isDl ? "Salva offline" : canDownload ? "Baixar direto da fonte e salvar no RIAmp" : "A fonte não disponibilizou áudio direto"}
+                          className="shrink-0 text-muted-foreground hover:text-primary"
                         >
-                          <ExternalLink className="h-4 w-4" />
-                        </a>
+                          {isDl ? <Check /> : busy[t.id] ? <Loader2 className="animate-spin" /> : <Download />}
+                        </Button>
                       )}
                       {tab === "library" ? (
                         <Button aria-label="Remover" onClick={() => removeDownload(t.id).then(refresh)} className="text-muted-foreground hover:text-destructive">
@@ -344,9 +346,9 @@ function App() {
                     </div>
                      {!isYt && tab === "home" && (
                        <div className="mt-3 flex min-h-8 items-center gap-1">
-                         <Button size="sm" variant={isDl ? "ghost" : "secondary"} disabled={isDl || busy[t.id] || !online} onClick={() => download(t)} aria-label={`Baixar ${t.title} no RIAmp`} className="min-w-0 flex-1 px-2 text-xs">
+                         <Button size="sm" variant={isDl ? "ghost" : "secondary"} disabled={isDl || busy[t.id] || !online || !canDownload} onClick={() => download(t)} aria-label={`Baixar ${t.title} no RIAmp`} title={canDownload ? "Salvar áudio neste aparelho" : "A fonte não disponibilizou áudio direto"} className="min-w-0 flex-1 px-2 text-xs">
                            {isDl ? <Check /> : busy[t.id] ? <Loader2 className="animate-spin" /> : <Download />}
-                           {isDl ? "Salva offline" : busy[t.id] ? progress[t.id] == null ? "Baixando…" : `${progress[t.id]}%` : "Baixar no RIAmp"}
+                           {isDl ? "Salva offline" : !canDownload ? "Sem áudio direto" : busy[t.id] ? progress[t.id] == null ? "Baixando…" : `${progress[t.id]}%` : "Baixar no RIAmp"}
                          </Button>
                          {busy[t.id] && <Button size="icon" variant="ghost" title="Cancelar download" aria-label={`Cancelar download de ${t.title}`} onClick={() => controllers.current.get(t.id)?.abort()}><X /></Button>}
                        </div>

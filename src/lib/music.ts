@@ -80,6 +80,18 @@ export async function trendingTracks(): Promise<Track[]> {
 
 export const streamUrl = (id: string) => `${API}/tracks/${id}/stream?${APP}`;
 
+/** Source audio only: source pages and catalog previews are never download URLs. */
+export function directDownloadUrl(track: Track): string | null {
+  if (track.source === "preview" || track.source === "local") return null;
+  if (track.preview) {
+    try {
+      const url = new URL(track.preview);
+      return url.protocol === "https:" && !url.username && !url.password ? url.href : null;
+    } catch { return null; }
+  }
+  return track.source === "audius" || !track.source ? streamUrl(track.id) : null;
+}
+
 // ---------- IndexedDB offline storage ----------
 type Stored = { track: Track; audio: Blob; art?: Blob };
 
@@ -135,7 +147,9 @@ export async function fetchAudio(url: string, onProgress?: (percent: number | nu
 
 export async function downloadTrack(track: Track, onProgress?: (percent: number | null) => void, signal?: AbortSignal): Promise<void> {
   if (track.source === "preview") throw new Error("Prévias não podem ser baixadas.");
-  const audio = await fetchAudio(track.preview || streamUrl(track.id), onProgress, signal);
+  const url = directDownloadUrl(track);
+  if (!url) throw new Error("Esta fonte não disponibilizou um link direto de áudio. Importe o arquivo do aparelho.");
+  const audio = await fetchAudio(url, onProgress, signal);
   let art: Blob | undefined;
   try {
     if (track.artwork) {
