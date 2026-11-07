@@ -211,7 +211,7 @@ function App() {
             <Settings className="h-4 w-4" />
           </Link>
         </div>
-        <nav className="mx-auto flex max-w-6xl gap-2 overflow-x-auto px-5 pb-3">
+        <nav className="mx-auto flex max-w-6xl flex-wrap gap-2 px-5 pb-3">
           {([["home", "Descobrir", Flame], ["library", `Downloads (${downloads.length})`, Library]] as const).map(([k, label, Icon]) => (
             <Button
               key={k}
