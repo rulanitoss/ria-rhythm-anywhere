@@ -1,4 +1,5 @@
 # RIAmp roadmap
+- [ ] Mostrar músicas offline em lista com título, artista e data de download
 - [x] Adicionar opção por URL acessível nas abas Descobrir e Downloads
 - [x] Trocar o atalho da página da música por download direto dentro do RIAmp quando disponível
 - [x] Importar músicas da pasta selecionada, incluindo subpastas, com autorização do usuário

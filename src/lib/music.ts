@@ -11,7 +11,13 @@ export type Track = {
   preview?: string;
   /** Web page of the track on its source site (opens in a new tab for manual download). */
   pageUrl?: string;
+  downloadedAt?: string;
 };
+
+/** Timestamp actual saves only; older downloads retain an unknown date. */
+export function markDownloaded(track: Track): Track {
+  return { ...track, downloadedAt: new Date().toISOString() };
+}
 
 const API = "https://api.audius.co/v1";
 const APP = "app_name=RIAmp";
@@ -157,7 +163,7 @@ export async function downloadTrack(track: Track, onProgress?: (percent: number 
       if (response.ok) art = await response.blob();
     }
   } catch {}
-  await tx("readwrite", (s) => s.put({ track, audio, art } as Stored));
+  await tx("readwrite", (s) => s.put({ track: markDownloaded(track), audio, art } as Stored));
   onProgress?.(100);
 }
 
@@ -169,7 +175,7 @@ export async function importAudioLink(value: string, title: string, onProgress?:
   const duration = await fileDuration(audio);
   if (!duration) throw new Error("Este arquivo não pode ser reproduzido como música neste aparelho.");
   const track: Track = { id: `link:${url.href}`, title: title.trim() || decodeURIComponent(url.pathname.split("/").pop() ?? "Música importada"), artist: "Importada por link", artwork: "", duration, source: "local" };
-  await tx("readwrite", (s) => s.put({ track, audio } as Stored));
+  await tx("readwrite", (s) => s.put({ track: markDownloaded(track), audio } as Stored));
   onProgress?.(100);
 }
 
@@ -200,7 +206,7 @@ export async function importFiles(files: FileList | File[]): Promise<number> {
     const duration = await fileDuration(f);
     if (!duration) continue;
     const track: Track = { id: localTrackId(f), title: (title ?? base).trim(), artist: (artist ?? "").trim(), artwork: "", duration, source: "local" };
-    await tx("readwrite", (s) => s.put({ track, audio: f } as Stored));
+    await tx("readwrite", (s) => s.put({ track: markDownloaded(track), audio: f } as Stored));
     n++;
   }
   return n;

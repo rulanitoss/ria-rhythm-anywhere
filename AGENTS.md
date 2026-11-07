@@ -17,3 +17,4 @@
 - Direct audio downloads and user-provided HTTPS audio links stay browser-side, validate responses and finish IndexedDB transactions before showing success; external pages are manual imports, not automatic capture. Why: respect CORS and avoid saving web pages as audio.
 - Track download controls share directDownloadUrl and downloadTrack; never navigate to pageUrl or fabricate external-site file URLs. Why: save actual source audio in RIAmp without misrepresenting blocked sources or previews.
 - Folder imports use user-selected directory files and browser-local IndexedDB, never server uploads or background filesystem access; shared audio filtering excludes unrelated files. Why: preserve user consent and offline device-local playback.
+- All offline save paths stamp track.downloadedAt in ISO format; the download list displays local dates and leaves legacy dates unknown. Why: expose real save dates without inventing history or migrating audio blobs.
