@@ -7,14 +7,24 @@
 >
 > Commits you push to the connected branch sync back to Lovable and show up in
 > the editor, so keep the branch in a working state.
+
+## What Lovable manages
+
+Rules outside this block are the project's own. Change the pieces below in
+Lovable, not by hand. With the [Lovable MCP](https://mcp.lovable.dev)
+connected, `send_message` asks Lovable to do it; otherwise ask the user to
+use the editor.
+
+- **Database.** Do not add or edit `supabase/migrations/` or `drizzle/`.
+  Ask Lovable to change the schema.
+- **Generated files.** Do not edit a file whose header says it is automatically
+  generated.
+- **AI gateway.** Keep model calls on Lovable's gateway, and keep
+  `LOVABLE_API_KEY` out of browser code.
+- **Connectors.** Lovable provides native connectors. `list_connectors` shows
+  which are enabled; `add_connector` only returns the dashboard link. When a
+  connector is enabled, calls go through the connector gateway and need
+  `LOVABLE_API_KEY`. When Lovable does not provide one, users can bring their
+  own key and store it in Secrets.
+- **Secrets.** Lovable manages them. Do not put secret values in the repo.
 <!-- LOVABLE:END -->
-
-- Music search: AI expands the query server-side (src/lib/smart-search.functions.ts), browser fans out to the Audius API and merges; downloads live in IndexedDB. Why: free legal catalog with CORS, offline playback without a backend.
-
-- Big-artist search uses the keyless iTunes Search API server-side (src/lib/catalog.functions.ts): 30s previews only, never downloadable. Why: user has no YouTube key; full tracks of major artists cannot be legally downloaded.
-- Full-length keyless source: Internet Archive search server-side (src/lib/archive.functions.ts); files are CORS-enabled so they download into IndexedDB like Audius.
-- Search sources run concurrently and merge through client-safe ranking helpers; stale searches must not replace newer results. Why: fast results without waiting for AI expansion.
-- Direct audio downloads and user-provided HTTPS audio links stay browser-side, validate responses and finish IndexedDB transactions before showing success; external pages are manual imports, not automatic capture. Why: respect CORS and avoid saving web pages as audio.
-- Track download controls share directDownloadUrl and downloadTrack; never navigate to pageUrl or fabricate external-site file URLs. Why: save actual source audio in RIAmp without misrepresenting blocked sources or previews.
-- Folder imports use user-selected directory files and browser-local IndexedDB, never server uploads or background filesystem access; shared audio filtering excludes unrelated files. Why: preserve user consent and offline device-local playback.
-- All offline save paths stamp track.downloadedAt in ISO format; the download list displays local dates and leaves legacy dates unknown. Why: expose real save dates without inventing history or migrating audio blobs.
