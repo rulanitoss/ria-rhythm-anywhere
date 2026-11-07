@@ -2,6 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Search, Download, Check, Play, Pause, Trash2, WifiOff, Wifi, Library, Flame, SkipBack, SkipForward, Loader2, Sparkles, Settings, Link2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { MusicImport } from "@/components/music-import";
 import { filterTracks, rankTracks } from "@/lib/music-search";
 import {
@@ -60,6 +61,8 @@ function App() {
   const [linkTitle, setLinkTitle] = useState("");
   const [linkBusy, setLinkBusy] = useState(false);
   const [linkProgress, setLinkProgress] = useState<number | null>(null);
+  const [linkOpen, setLinkOpen] = useState(false);
+  const [linkError, setLinkError] = useState("");
   const searchId = useRef(0);
   const initialSearchId = useRef(0);
   const controllers = useRef(new Map<string, AbortController>());
@@ -218,6 +221,7 @@ function App() {
               <Icon className="h-4 w-4" /> {label}
             </Button>
           ))}
+          <Button variant="outline" disabled={!online} onClick={() => { setLinkError(""); setLinkOpen(true); }}><Link2 /> Adicionar por URL</Button>
         </nav>
       </header>
 
@@ -227,21 +231,28 @@ function App() {
           <p className="rounded-2xl bg-card p-6 text-muted-foreground">Você está offline. Abra os Downloads para ouvir suas músicas instaladas.</p>
         )}
         {tab === "library" && <MusicImport onComplete={async (message) => { await refresh(); setQ(""); setNotice(message); }} />}
-        {tab === "library" && online && (
-          <form className="mb-8 space-y-3 border-b border-border pb-6" onSubmit={async (e) => {
-            e.preventDefault(); setLinkBusy(true); setNotice(""); setLinkProgress(null);
-            try { await importAudioLink(link, linkTitle, setLinkProgress); await refresh(); setLink(""); setLinkTitle(""); setQ(""); setNotice("Música salva em Downloads para ouvir offline."); }
-            catch (error) { setNotice(error instanceof Error && error.message !== "Failed to fetch" ? error.message : "O site não permite importar este link. Baixe lá e adicione o arquivo do aparelho."); }
+        <Dialog open={linkOpen} onOpenChange={(open) => { if (!linkBusy) setLinkOpen(open); }}>
+          <DialogContent className="max-h-[90dvh] w-[calc(100%-2rem)] overflow-y-auto rounded-lg">
+          <DialogHeader>
+            <DialogTitle>Adicionar música por URL</DialogTitle>
+            <DialogDescription>Link HTTPS direto de áudio, como MP3 ou M4A. Páginas de sites não são arquivos de música; a fonte precisa permitir o download.</DialogDescription>
+          </DialogHeader>
+          <form className="space-y-4" onSubmit={async (e) => {
+            e.preventDefault(); if (linkBusy || !online) return; setLinkBusy(true); setNotice(""); setLinkError(""); setLinkProgress(null);
+            try { await importAudioLink(link, linkTitle, setLinkProgress); await refresh(); setLink(""); setLinkTitle(""); setQ(""); setTab("library"); setLinkOpen(false); setNotice("Música salva em Downloads para ouvir offline."); }
+            catch (error) { setLinkError(error instanceof Error && error.message !== "Failed to fetch" ? error.message : "O site não permite importar este link. Baixe lá e adicione o arquivo do aparelho."); }
             finally { setLinkBusy(false); }
           }}>
-            <h2 className="flex items-center gap-2 text-sm font-semibold"><Link2 className="h-4 w-4 text-primary" /> Importar áudio por link</h2>
-            <div className="flex flex-col gap-2 sm:flex-row">
-              <input aria-label="Link direto de áudio" type="url" required value={link} onChange={(e) => setLink(e.target.value)} placeholder="https://.../musica.mp3" className="min-w-0 flex-1 rounded-md border border-border bg-card px-3 py-2 text-sm" disabled={linkBusy} />
-              <input aria-label="Nome da música" value={linkTitle} onChange={(e) => setLinkTitle(e.target.value)} placeholder="Nome da música (opcional)" className="min-w-0 rounded-md border border-border bg-card px-3 py-2 text-sm" disabled={linkBusy} />
-              <Button type="submit" disabled={linkBusy || !link.trim()}>{linkBusy ? <Loader2 className="animate-spin" /> : <Download />} {linkBusy ? linkProgress === null ? "Baixando…" : `${linkProgress}%` : "Importar"}</Button>
+            <div className="flex flex-col gap-3">
+              <label className="space-y-1 text-sm">URL da música<input aria-label="Link direto de áudio" type="url" required value={link} onChange={(e) => setLink(e.target.value)} placeholder="https://.../musica.mp3" className="block w-full rounded-md border border-border bg-card px-3 py-2 text-sm" disabled={linkBusy} /></label>
+              <label className="space-y-1 text-sm">Nome da música (opcional)<input aria-label="Nome da música" value={linkTitle} onChange={(e) => setLinkTitle(e.target.value)} placeholder="Nome da música" className="block w-full rounded-md border border-border bg-card px-3 py-2 text-sm" disabled={linkBusy} /></label>
+              {linkError && <p role="alert" className="text-sm text-destructive">{linkError}</p>}
+              {linkBusy && <p role="status" className="text-sm text-muted-foreground">{linkProgress === null ? "Baixando áudio…" : `Baixando áudio: ${linkProgress}%`}</p>}
+              <Button type="submit" disabled={linkBusy || !link.trim() || !online}>{linkBusy ? <Loader2 className="animate-spin" /> : <Download />} {linkBusy ? "Baixando…" : "Baixar no RIAmp"}</Button>
             </div>
           </form>
-        )}
+          </DialogContent>
+        </Dialog>
         {tab === "library" && online && (
           <div className="mb-8">
             <p className="mb-3 text-sm font-semibold">Sites externos <span className="font-normal text-muted-foreground">— arquivos baixados lá precisam ser importados do aparelho</span></p>
