@@ -1,5 +1,5 @@
 # RIAmp roadmap
-- [ ] Trocar o atalho da página da música por download direto dentro do RIAmp quando disponível
+- [x] Trocar o atalho da página da música por download direto dentro do RIAmp quando disponível
 - [x] Importar músicas da pasta selecionada, incluindo subpastas, com autorização do usuário
 - [x] Melhorar busca: resultados imediatos, relevância e filtro nos downloads
 - [x] Baixar dentro do app com progresso e importar link direto de áudio
