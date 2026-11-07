@@ -15,4 +15,5 @@
 - Full-length keyless source: Internet Archive search server-side (src/lib/archive.functions.ts); files are CORS-enabled so they download into IndexedDB like Audius.
 - Search sources run concurrently and merge through client-safe ranking helpers; stale searches must not replace newer results. Why: fast results without waiting for AI expansion.
 - Direct audio downloads and user-provided HTTPS audio links stay browser-side, validate responses and finish IndexedDB transactions before showing success; external pages are manual imports, not automatic capture. Why: respect CORS and avoid saving web pages as audio.
+- Track download controls share directDownloadUrl and downloadTrack; never navigate to pageUrl or fabricate external-site file URLs. Why: save actual source audio in RIAmp without misrepresenting blocked sources or previews.
 - Folder imports use user-selected directory files and browser-local IndexedDB, never server uploads or background filesystem access; shared audio filtering excludes unrelated files. Why: preserve user consent and offline device-local playback.
