@@ -1,3 +1,5 @@
+import { isAudioFile, localTrackId } from "@/lib/audio-files";
+
 export type Track = {
   id: string;
   title: string;
@@ -178,10 +180,12 @@ const fileDuration = (f: Blob) =>
 export async function importFiles(files: FileList | File[]): Promise<number> {
   let n = 0;
   for (const f of Array.from(files)) {
-    if (!f.type.startsWith("audio/") && !/\.(mp3|m4a|aac|wav|ogg|flac|opus)$/i.test(f.name)) continue;
+    if (!isAudioFile(f)) continue;
     const base = f.name.replace(/\.[^.]+$/, "").replace(/_/g, " ");
     const [artist, title] = base.includes(" - ") ? base.split(" - ", 2) : ["Minhas músicas", base];
-    const track: Track = { id: `local:${f.name}:${f.size}`, title: (title ?? base).trim(), artist: (artist ?? "").trim(), artwork: "", duration: await fileDuration(f), source: "local" };
+    const duration = await fileDuration(f);
+    if (!duration) continue;
+    const track: Track = { id: localTrackId(f), title: (title ?? base).trim(), artist: (artist ?? "").trim(), artwork: "", duration, source: "local" };
     await tx("readwrite", (s) => s.put({ track, audio: f } as Stored));
     n++;
   }

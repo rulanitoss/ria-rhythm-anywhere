@@ -1,7 +1,8 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Search, Download, Check, Play, Pause, Trash2, WifiOff, Wifi, Library, Flame, SkipBack, SkipForward, Loader2, Sparkles, Upload, Settings, ExternalLink, Link2, X } from "lucide-react";
+import { Search, Download, Check, Play, Pause, Trash2, WifiOff, Wifi, Library, Flame, SkipBack, SkipForward, Loader2, Sparkles, Settings, ExternalLink, Link2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { MusicImport } from "@/components/music-import";
 import { filterTracks, rankTracks } from "@/lib/music-search";
 import {
   type Track,
@@ -12,7 +13,6 @@ import {
   getDownloads,
   removeDownload,
   fmt,
-  importFiles,
   getSavedPreviews,
   getShowPreviews,
   importAudioLink,
@@ -226,23 +226,7 @@ function App() {
         {tab === "home" && !online && (
           <p className="rounded-2xl bg-card p-6 text-muted-foreground">Você está offline. Abra os Downloads para ouvir suas músicas instaladas.</p>
         )}
-        {tab === "library" && (
-          <label className="mb-6 flex w-fit cursor-pointer items-center gap-2 rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground shadow-glow">
-            <Upload className="h-4 w-4" /> Adicionar músicas do meu aparelho
-            <input
-              type="file"
-              accept="audio/*,.mp3,.m4a,.aac,.wav,.ogg,.flac,.opus"
-              multiple
-              className="hidden"
-              onChange={async (e) => {
-                try {
-                  if (e.target.files?.length) { const n = await importFiles(e.target.files); await refresh(); setNotice(`${n} música(s) adicionada(s) em Downloads.`); }
-                } catch { setNotice("Não foi possível importar. Confira o espaço disponível no aparelho."); }
-                e.target.value = "";
-              }}
-            />
-          </label>
-        )}
+        {tab === "library" && <MusicImport onComplete={async (message) => { await refresh(); setQ(""); setNotice(message); }} />}
         {tab === "library" && online && (
           <form className="mb-8 space-y-3 border-b border-border pb-6" onSubmit={async (e) => {
             e.preventDefault(); setLinkBusy(true); setNotice(""); setLinkProgress(null);
