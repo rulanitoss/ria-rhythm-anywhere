@@ -4,6 +4,7 @@ import { Search, Download, Check, Play, Pause, Trash2, WifiOff, Wifi, Library, F
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { MusicImport } from "@/components/music-import";
+import { DownloadList } from "@/components/download-list";
 import { filterTracks, rankTracks } from "@/lib/music-search";
 import {
   type Track,
@@ -305,7 +306,9 @@ function App() {
           <p className="mb-6 rounded-2xl bg-card p-6 text-muted-foreground">Não encontrei músicas completas para esta pesquisa. Ative as prévias acima para ouvir 30s.</p>
         )}
         {tab === "home" && searched && <div className="mb-4 flex items-center gap-2 text-sm text-muted-foreground"><span>{list.length} {fullOnly ? "músicas completas" : "resultados"} · {searched}</span>{loading && <Loader2 className="h-4 w-4 animate-spin text-primary" />}</div>}
-        {loading && tab === "home" && list.length === 0 ? (
+        {tab === "library" ? (
+          <DownloadList tracks={list} currentId={current?.id} playing={playing} artwork={art} onPlay={(track) => play(track, list)} onRemove={(track) => { void removeDownload(track.id).then(refresh); }} />
+        ) : loading && list.length === 0 ? (
           <div role="status" className="flex items-center justify-center gap-3 py-20"><Loader2 className="h-6 w-6 animate-spin text-primary" /> Procurando músicas…</div>
         ) : (
           (tab === "library" || online) && (
