@@ -23,6 +23,9 @@ import {
 import { expandQuery } from "@/lib/smart-search.functions";
 import { searchCatalog } from "@/lib/catalog.functions";
 import { searchArchive } from "@/lib/archive.functions";
+import { musicPresets, youtubeVideoId } from '@/lib/music-presets';
+import { YoutubePlayer } from '@/components/youtube-player';
+import { useAccount } from '@/components/account-provider';
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -41,6 +44,8 @@ export const Route = createFileRoute("/")({
 type Tab = "home" | "library";
 
 function App() {
+  const { user } = useAccount();
+  const [youtubeId, setYoutubeId] = useState<string | null>(null);
   const [online, setOnline] = useState(true);
   const [tab, setTab] = useState<Tab>("home");
   const [q, setQ] = useState("");
@@ -100,9 +105,9 @@ function App() {
     };
   }, []);
 
-  const doSearch = async (e: React.FormEvent) => {
+  const doSearch = async (e: { preventDefault: () => void }, presetQuery?: string) => {
     e.preventDefault();
-    const query = q.trim();
+    const query = (presetQuery ?? q).trim();
     if (!query) return;
     if (tab === "library") { setSearched(query); return; }
     if (!online) return;
@@ -138,6 +143,7 @@ function App() {
   };
 
   const play = (t: Track, list: Track[]) => {
+    setYoutubeId(null);
     const a = audioRef.current;
     if (!a) return;
     if (current?.id === t.id) {
@@ -211,6 +217,7 @@ function App() {
           <Link to="/admin" aria-label="Administração" className="rounded-full bg-card p-2 text-muted-foreground hover:text-foreground">
             <Settings className="h-4 w-4" />
           </Link>
+          <Button variant="outline" asChild><Link to="/auth">{user ? 'Minha conta' : 'Entrar'}</Link></Button>
         </div>
         <nav className="mx-auto flex max-w-6xl flex-wrap gap-2 px-5 pb-3">
           {([["home", "Descobrir", Flame], ["library", `Downloads (${downloads.length})`, Library]] as const).map(([k, label, Icon]) => (
@@ -227,6 +234,9 @@ function App() {
       </header>
 
       <main className="mx-auto max-w-6xl px-5 py-8">
+        {tab === 'home' && online && <section className="mb-8 border-b border-border pb-6"><h2 className="mb-3 font-semibold">Artistas e seleções</h2><div className="flex flex-wrap gap-2">{musicPresets.map(p => <Button key={p.name} variant="outline" onClick={() => { setQ(p.query); void doSearch({ preventDefault() {} }, p.query); }}>{p.name}</Button>)}</div></section>}
+        {youtubeId && online && <YoutubePlayer id={youtubeId} onClose={() => setYoutubeId(null)} />}
+        {youtubeId && !online && <p className="mb-6 text-muted-foreground">YouTube indisponível offline.</p>}
         {notice && <p role="status" className="mb-6 border-l-2 border-primary py-2 pl-4 text-sm">{notice}</p>}
         {tab === "home" && !online && (
           <p className="rounded-2xl bg-card p-6 text-muted-foreground">Você está offline. Abra os Downloads para ouvir suas músicas instaladas.</p>
@@ -236,10 +246,12 @@ function App() {
           <DialogContent className="max-h-[90dvh] w-[calc(100%-2rem)] overflow-y-auto rounded-lg">
           <DialogHeader>
             <DialogTitle>Adicionar música por URL</DialogTitle>
-            <DialogDescription>Link HTTPS direto de áudio, como MP3 ou M4A. Páginas de sites não são arquivos de música; a fonte precisa permitir o download.</DialogDescription>
+            <DialogDescription>Áudio MP3 ou M4A para download autorizado. Links do YouTube abrem o vídeo online, sem download de áudio.</DialogDescription>
           </DialogHeader>
           <form className="space-y-4" onSubmit={async (e) => {
             e.preventDefault(); if (linkBusy || !online) return; setLinkBusy(true); setNotice(""); setLinkError(""); setLinkProgress(null);
+            const videoId = youtubeVideoId(link);
+            if (videoId) { audioRef.current?.pause(); setYoutubeId(videoId); setTab('home'); setLinkOpen(false); setLinkBusy(false); setLink(''); return; }
             try { await importAudioLink(link, linkTitle, setLinkProgress); await refresh(); setLink(""); setLinkTitle(""); setQ(""); setTab("library"); setLinkOpen(false); setNotice("Música salva em Downloads para ouvir offline."); }
             catch (error) { setLinkError(error instanceof Error && error.message !== "Failed to fetch" ? error.message : "O site não permite importar este link. Baixe lá e adicione o arquivo do aparelho."); }
             finally { setLinkBusy(false); }
@@ -249,7 +261,7 @@ function App() {
               <label className="space-y-1 text-sm">Nome da música (opcional)<input aria-label="Nome da música" value={linkTitle} onChange={(e) => setLinkTitle(e.target.value)} placeholder="Nome da música" className="block w-full rounded-md border border-border bg-card px-3 py-2 text-sm" disabled={linkBusy} /></label>
               {linkError && <p role="alert" className="text-sm text-destructive">{linkError}</p>}
               {linkBusy && <p role="status" className="text-sm text-muted-foreground">{linkProgress === null ? "Baixando áudio…" : `Baixando áudio: ${linkProgress}%`}</p>}
-              <Button type="submit" disabled={linkBusy || !link.trim() || !online}>{linkBusy ? <Loader2 className="animate-spin" /> : <Download />} {linkBusy ? "Baixando…" : "Baixar no RIAmp"}</Button>
+              <Button type="submit" disabled={linkBusy || !link.trim() || !online}>{linkBusy ? <Loader2 className="animate-spin" /> : youtubeVideoId(link) ? <Play /> : <Download />} {linkBusy ? "Baixando…" : youtubeVideoId(link) ? "Reproduzir YouTube online" : "Baixar no RIAmp"}</Button>
             </div>
           </form>
           </DialogContent>
