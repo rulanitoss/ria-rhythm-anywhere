@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Search, Download, Check, Play, Pause, Trash2, WifiOff, Wifi, Library, Flame, SkipBack, SkipForward, Loader2, Sparkles, Settings, Link2, X } from "lucide-react";
+import { Search, Download, Check, Play, Pause, WifiOff, Wifi, Library, Flame, SkipBack, SkipForward, Loader2, Sparkles, Settings, Link2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { MusicImport } from "@/components/music-import";
@@ -311,7 +311,7 @@ function App() {
         ) : loading && list.length === 0 ? (
           <div role="status" className="flex items-center justify-center gap-3 py-20"><Loader2 className="h-6 w-6 animate-spin text-primary" /> Procurando músicas…</div>
         ) : (
-          (tab === "library" || online) && (
+          online && (
             <div className="grid grid-cols-2 gap-5 sm:grid-cols-3 lg:grid-cols-5">
               {list.map((t) => {
                 const isDl = downloaded.has(t.id);
@@ -350,11 +350,7 @@ function App() {
                           {isDl ? <Check /> : busy[t.id] ? <Loader2 className="animate-spin" /> : <Download />}
                         </Button>
                       )}
-                      {tab === "library" ? (
-                        <Button aria-label="Remover" onClick={() => removeDownload(t.id).then(refresh)} className="text-muted-foreground hover:text-destructive">
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      ) : isYt ? (
+                      {isYt ? (
                         <span title="Prévia de 30 segundos, só online, sem download" className="shrink-0 rounded bg-secondary px-1.5 py-0.5 text-[10px] font-bold text-muted-foreground">Prévia</span>
                        ) : null}
                     </div>
