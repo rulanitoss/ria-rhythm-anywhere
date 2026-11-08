@@ -28,3 +28,7 @@ use the editor.
   own key and store it in Secrets.
 - **Secrets.** Lovable manages them. Do not put secret values in the repo.
 <!-- LOVABLE:END -->
+
+- Account identity maps normalized usernames to synthetic emails through one shared helper; Cloud Auth owns passwords and sessions, and profiles are owner-scoped through RLS.
+- Keep the shared account session listener in AccountProvider at the root; identity changes invalidate routing without refetching private data on sign-out.
+- Music presets are catalog searches, not a promise of licensed full recordings; YouTube URL playback uses the official visible embed and never an audio extraction endpoint.
