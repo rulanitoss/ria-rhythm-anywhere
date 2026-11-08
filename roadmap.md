@@ -1,4 +1,7 @@
 # RIAmp roadmap
+- [ ] Predefinir Bryan Adams, Céline Dion, Michael Jackson, Mariah Carey, internacionais dos anos 80/90, trilhas sonoras e love songs
+- [ ] Adicionar criação de utilizador sem Gmail — aguarda confirmação de perfil local ou conta com senha
+- [ ] Definir opção para links do YouTube — download de áudio não disponível pela API oficial; aguarda escolha de reprodução online
 - [x] Mostrar músicas offline em lista com título, artista e data de download
 - [x] Adicionar opção por URL acessível nas abas Descobrir e Downloads
 - [x] Trocar o atalho da página da música por download direto dentro do RIAmp quando disponível
