@@ -1,0 +1,32 @@
+RIAmp — estrutura inicial da pasta de músicas
+
+IMPORTANTE: esta pasta contém apenas a nova pasta music/. NÃO substitua nem apague a pasta public/ que já existe no repositório.
+
+COMO INSTALAR:
+1. Abra o repositório do RIAmp no GitHub.
+2. Entre na pasta public/.
+3. Use Add file > Upload files.
+4. Arraste para o GitHub o conteúdo da pasta music/ deste pacote (audio/, covers/ e catalog.json).
+5. Faça Commit changes.
+6. O Vercel deverá iniciar a publicação automática se estiver ligado ao repositório.
+
+ONDE COLOCAR OS FICHEIROS:
+- Ficheiros de áudio: public/music/audio/
+- Capas: public/music/covers/
+- Lista de músicas: public/music/catalog.json
+
+EXEMPLO DE ENTRADA PARA catalog.json (substitua pelos dados reais):
+{
+  "id": "faixa-001",
+  "title": "Nome da música",
+  "artist": "Nome do artista",
+  "audio": "/music/audio/nome-do-ficheiro.mp3",
+  "cover": "/music/covers/nome-da-capa.jpg"
+}
+
+O catalog.json começa vazio ([]) de propósito. Quando adicionar uma música, acrescente um objeto como o exemplo dentro do array JSON.
+
+NOTA TÉCNICA:
+Esta pasta prepara os caminhos públicos dos ficheiros. O site ainda precisa de uma alteração no código da aplicação para ler catalog.json e mostrar essas músicas no catálogo. Adicionar MP3 ao repositório, por si só, não os faz aparecer automaticamente na interface atual.
+
+Use apenas músicas e capas que tenha autorização para disponibilizar.
