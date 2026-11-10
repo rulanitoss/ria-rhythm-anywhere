@@ -333,6 +333,27 @@ function App() {
           <p className="mb-6 rounded-2xl bg-card p-6 text-muted-foreground">Não encontrei músicas completas para esta pesquisa. Ative as prévias acima para ouvir 30s.</p>
         )}
         {tab === "home" && searched && <div className="mb-4 flex items-center gap-2 text-sm text-muted-foreground"><span>{list.length} {fullOnly ? "músicas completas" : "resultados"} · {searched}</span>{loading && <Loader2 className="h-4 w-4 animate-spin text-primary" />}</div>}
+        {tab === "library" && missing.length > 0 && (
+          <section aria-label="Músicas da sua conta" className="mb-8 rounded-2xl bg-card p-4">
+            <h2 className="mb-1 text-lg font-semibold">Da sua conta, falta neste aparelho ({missing.length})</h2>
+            <p className="mb-3 text-sm text-muted-foreground">Baixe de novo para ouvir offline aqui. Músicas importadas do aparelho precisam ser importadas outra vez.</p>
+            <ul className="divide-y divide-border">
+              {missing.map((t) => {
+                const canGet = !!directDownloadUrl(t);
+                return (
+                  <li key={t.id} className="flex items-center gap-3 py-3">
+                    <div className="min-w-0 flex-1"><p className="break-words text-sm font-semibold">{t.title}</p><p className="text-xs text-muted-foreground">{t.artist}</p></div>
+                    {canGet ? (
+                      <Button size="sm" disabled={busy[t.id]} onClick={() => void download(t)}>{busy[t.id] ? `${progress[t.id] ?? ""}${progress[t.id] != null ? "%" : "…"}` : "Baixar de novo"}</Button>
+                    ) : <span className="text-xs text-muted-foreground">Importe o arquivo</span>}
+                    <Button size="icon" variant="ghost" aria-label={`Tirar ${t.title} da conta`} onClick={() => { if (user) void syncRemoved(user.id, t.id).then(() => setSynced((s) => s.filter((x) => x.id !== t.id))); }}><X /></Button>
+                  </li>
+                );
+              })}
+            </ul>
+          </section>
+        )}
+        {tab === "library" && !user && <p className="mb-4 text-sm text-muted-foreground"><Link to="/auth" className="text-primary underline">Entre na sua conta</Link> para guardar esta lista e recuperá-la noutro celular.</p>}
         {tab === "library" ? (
           <DownloadList tracks={list} currentId={current?.id} playing={playing} artwork={art} onPlay={(track) => play(track, list)} onRemove={(track) => { if (user) void syncRemoved(user.id, track.id); void removeDownload(track.id).then(refresh); }} />
         ) : loading && list.length === 0 ? (
