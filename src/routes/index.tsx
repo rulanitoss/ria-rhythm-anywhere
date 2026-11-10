@@ -26,6 +26,7 @@ import { searchArchive } from "@/lib/archive.functions";
 import { musicPresets, youtubeVideoId } from '@/lib/music-presets';
 import { YoutubePlayer } from '@/components/youtube-player';
 import { useAccount } from '@/components/account-provider';
+import { syncedTracks, syncSaved, syncRemoved } from '@/lib/download-sync';
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -83,6 +84,20 @@ function App() {
   }, [downloads]);
 
   const refresh = () => getDownloads().then(setDownloads).catch(() => {});
+  const [synced, setSynced] = useState<Track[]>([]);
+  useEffect(() => {
+    if (!user || !online) { setSynced([]); return; }
+    let live = true;
+    void syncedTracks().then(async (remote) => {
+      const ids = new Set(remote.map((t) => t.id));
+      const fresh = downloads.filter((d) => !ids.has(d.track.id)).map((d) => d.track);
+      await Promise.all(fresh.map((t) => syncSaved(user.id, t)));
+      if (live) setSynced([...fresh, ...remote]);
+    }).catch(() => {});
+    return () => { live = false; };
+  }, [user, online, downloads]);
+  const localIds = new Set(downloads.map((d) => d.track.id));
+  const missing = synced.filter((t) => !localIds.has(t.id));
 
   useEffect(() => {
     setOnline(navigator.onLine);
@@ -319,7 +334,7 @@ function App() {
         )}
         {tab === "home" && searched && <div className="mb-4 flex items-center gap-2 text-sm text-muted-foreground"><span>{list.length} {fullOnly ? "músicas completas" : "resultados"} · {searched}</span>{loading && <Loader2 className="h-4 w-4 animate-spin text-primary" />}</div>}
         {tab === "library" ? (
-          <DownloadList tracks={list} currentId={current?.id} playing={playing} artwork={art} onPlay={(track) => play(track, list)} onRemove={(track) => { void removeDownload(track.id).then(refresh); }} />
+          <DownloadList tracks={list} currentId={current?.id} playing={playing} artwork={art} onPlay={(track) => play(track, list)} onRemove={(track) => { if (user) void syncRemoved(user.id, track.id); void removeDownload(track.id).then(refresh); }} />
         ) : loading && list.length === 0 ? (
           <div role="status" className="flex items-center justify-center gap-3 py-20"><Loader2 className="h-6 w-6 animate-spin text-primary" /> Procurando músicas…</div>
         ) : (
